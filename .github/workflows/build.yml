@@ -15,10 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-x64,   os: ubuntu-latest,   artifact: simtechdata }
-          - { name: macos-arm64, os: macos-latest,    artifact: simtechdata }
-          - { name: macos-x64,   os: macos-15-intel,  artifact: simtechdata }
-          - { name: windows-x64, os: windows-latest,  artifact: simtechdata.exe }
+          - { name: linux-x64,   os: ubuntu-latest,   artifact: icloudextract }
+          - { name: macos-arm64, os: macos-latest,    artifact: icloudextract }
+          - { name: macos-x64,   os: macos-15-intel,  artifact: icloudextract }
+          - { name: windows-x64, os: windows-latest,  artifact: icloudextract.exe }
     steps:
       - uses: actions/checkout@v4
 
