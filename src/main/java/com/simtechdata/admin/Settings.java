@@ -13,4 +13,9 @@ public record Settings(
         OverwriteMode overwrite,
         boolean checkZip,
         int threads) {
+
+    /** The same settings with another thread count. */
+    public Settings withThreads(int n) {
+        return new Settings(destination, verify, consolidate, overwrite, checkZip, n);
+    }
 }

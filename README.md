@@ -124,11 +124,12 @@ This option can do different things depending on the state of your overall file 
   - This option is incredibly useful when you are extracting files onto a solid state drive (nVme etc.), because it launches new threads for each zip file and extracts them simultaneously. And because solid state drives have no moving parts, this can make the overall extraction process incredibly fast.
   - Using this option when the files are being extracted to a bare metal hard drive will most likely slow down the overall process. I dont recommend using this option when you are writing to a bare metal hard drive.
   - Files are unzipped in sequence up to the number of threads you specify. For example, if you have 10 zip files but you use `-threads 5` then zip files 1 through 5 will be extracted immediately then as file extraction finishes, the next zip file in the sequence will be added to the thread pool.
+  - There will always be a thread count where you get diminishing returns because there are just too many threads hitting the file system at once. A good rule of thumb is around 1/3 of the total number of zip files. If you have 9 files, set `=threads 3`.
 
 `-getTotal`
   - The point of this option is to know how much storage space will be consumed on your hard drive after the zip files have been extracted.
   - It will calculate the space using whichever zip files you specify using the `-source` option. This means if you specity a single zip file, it will only sum up the file sizwes from that zip file, but if you give it a folder containing multiple zip files, it will give you the sum across all of the zip files and will account for duplicates that would not be written to the destination etc.
-  - You can use the `-threads` option to make this go faster and in this case it wont matter if the zip files are on a bare metal hard drive or not, it will still run faster with more threads because nothing is being written to the drive. I recommend one thread for each zip file so if you have 10 zip files, then use `-threads 10`
+  - You can use the `-threads` option to make this go faster and here again, this is generally more true when your zip files are on a SSD (nVme) drive. Two or three threads should be sufficient for some performance boost.
 
 ### Examples
 
@@ -149,7 +150,14 @@ mismatch, and `2` for bad arguments.
 
 ## Status Update
 
-While files are being extracted, a status line stays at the bottom of the terminal showing a spinner, the elapsed time as `HH:MM:SS`, an estimate of the time remaining such as `est. 00:31:05 left` (based on the speed of the last minute, and shown as `--:--:--` until the program has finished adding up the size of all the zip files in the background), how many zip files are finished out of the total such as `(6/18)`, and the names of the zip files that are being unzipped right now. Above that line the program prints a line as each zip file starts and another with its summary when it finishes, and when the output is redirected to a file only those lines are written and the status line is left out.
+While files are being extracted, a status line stays at the bottom of the terminal showing:
+
+- Elapsed time as `HH:MM:SS`
+- An estimate of the time remaining `est. 00:31:05 left`
+- Zip files completed / total `(6/18)`
+
+To estimate the time remaining, the program has to do extract the file table from each zip file. It does this in the background so the estimated time for completion will improve over time.
+
 
 ## Log File
 

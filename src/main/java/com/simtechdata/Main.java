@@ -2,7 +2,10 @@ package com.simtechdata;
 
 import com.simtechdata.enums.LogAction;
 import com.simtechdata.enums.LogReason;
+import com.simtechdata.enums.StorageKind;
 import com.simtechdata.enums.VerifyMode;
+import com.simtechdata.admin.ThreadChooser;
+import com.simtechdata.files.StorageProbe;
 import com.simtechdata.files.FolderMerger;
 import com.simtechdata.enums.OverwriteMode;
 import com.simtechdata.admin.RunLog;
@@ -98,10 +101,13 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                     "destination."})
     private boolean yes;
 
-    @Option(names = {"-threads", "--threads"}, defaultValue = "1", paramLabel = "<n>",
-            description = {"How many zip files to extract at the same time. Default: ${DEFAULT-VALUE}.",
+    @Option(names = {"-threads", "--threads"}, paramLabel = "<n>",
+            description = {"How many zip files to extract at the same time. Without this option the program checks",
+                    "what kind of drives the zip files and the destination are on: when both are SSDs it uses one",
+                    "thread per CPU core, otherwise (a hard drive, or a drive it cannot identify) one thread. The",
+                    "choice is printed. A number given here is always used as is.",
                     "With -getTotal: how many zip files to read at the same time."})
-    private int threads;
+    private Integer threads;
 
     @Option(names = {"-getTotal", "--getTotal"},
             description = {"Add up how much disk space the extraction needs, without extracting anything.",
@@ -147,6 +153,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         for (String warning : resolved.warnings()) {
             System.err.println("Warning: " + warning);
         }
+        settings = decideThreads(settings, sourcePath);
         if (getTotal) {
             return printTotal(settings, resolved, sourcePath);
         }
@@ -336,7 +343,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         if (destination == null || destination.isBlank()) {
             destination = "iCloudExtract";
         }
-        if (threads < 1) {
+        if (threads != null && threads < 1) {
             throw new IllegalArgumentException("-threads must be at least 1");
         }
         VerifyMode verifyMode = VerifyMode.NONE;
@@ -361,7 +368,22 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         if (Files.exists(dest) && !Files.isDirectory(dest)) {
             throw new IllegalArgumentException("-destination exists and is not a folder: " + dest);
         }
-        return new Settings(dest, verifyMode, consolidate, overwriteMode, checkZip, threads);
+        return new Settings(dest, verifyMode, consolidate, overwriteMode, checkZip, threads == null ? 1 : threads);
+    }
+
+    /**
+     * Without {@code -threads}, decides the thread count from the kinds of drives involved and prints the decision.
+     * A number given with {@code -threads} is left alone and nothing is printed.
+     */
+    private Settings decideThreads(Settings settings, Path sourcePath) {
+        if (threads != null) {
+            return settings;
+        }
+        StorageKind from = StorageProbe.detect(sourcePath);
+        StorageKind to = getTotal ? null : StorageProbe.detect(settings.destination());
+        ThreadChooser.Choice choice = ThreadChooser.choose(from, to, Runtime.getRuntime().availableProcessors());
+        System.out.println(choice.message());
+        return settings.withThreads(choice.threads());
     }
 
     private int run(Settings settings, Resolved resolved, Path sourcePath, RunLog log,
