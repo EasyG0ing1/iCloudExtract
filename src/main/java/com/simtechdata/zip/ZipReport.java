@@ -1,4 +1,4 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
 
 /** Counters for one zip file. Each zip is processed by a single thread, so plain fields are fine. */
 public final class ZipReport {

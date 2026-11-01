@@ -1,13 +1,16 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
-import com.icloudextract.files.Checksums;
-import com.icloudextract.files.ConflictPlanner;
-import com.icloudextract.files.FileNames;
-import com.icloudextract.files.FolderMerger;
-import com.icloudextract.files.OverwriteMode;
-import com.icloudextract.files.RunLog;
+import com.simtechdata.admin.Progress;
+import com.simtechdata.admin.Settings;
+import com.simtechdata.enums.*;
+import com.simtechdata.files.Checksums;
+import com.simtechdata.files.ConflictPlanner;
+import com.simtechdata.files.FileNames;
+import com.simtechdata.files.FolderMerger;
+import com.simtechdata.admin.RunLog;
+import com.simtechdata.records.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -43,22 +46,13 @@ public final class ZipExtractor {
     private static final int LOCK_STRIPES = 256;
     private static final Object DIR_LOCK = new Object();
 
-    private enum Decision { NEW, OVERWRITE, RENAME, SKIP_IDENTICAL, SKIP_CONFLICT }
-
-    private enum Outcome { EXTRACTED, OVERWRITTEN, SKIPPED_IDENTICAL, SKIPPED_CONFLICT }
-
-    private record Candidate(ZipArchiveEntry entry, String name, boolean directory, List<String> segments) {
-    }
-
-    private record Result(String entryName, Path target, long size, long crc, Outcome outcome) {
-    }
-
     private final Settings settings;
-    private final RunLog log;
-    private final Path root;
+    private final RunLog   log;
+    private final Path     root;
     private final Progress progress;
     private final Object[] pathLocks = new Object[LOCK_STRIPES];
     private final Set<Path> redirectsLogged = ConcurrentHashMap.newKeySet();
+
     /** Files written by this run (key: see {@link #key}) mapped to the zip they came from. */
     private final Map<String, String> writtenThisRun = new ConcurrentHashMap<>();
 
@@ -96,9 +90,9 @@ public final class ZipExtractor {
             }
 
             List<Candidate> candidates = readEntries(zf, report, zipName);
-            ConflictPlanner.Plan plan = planConflicts(candidates, report, zipName);
+            Plan plan = planConflicts(candidates, report, zipName);
 
-            boolean verifying = settings.verify() != Settings.VerifyMode.NONE;
+            boolean verifying = settings.verify() != VerifyMode.NONE;
             List<Result> results = new ArrayList<>();
             // Paths this zip has already written (or found already in place); a second entry for the same
             // path is a different file that must not replace the first.
@@ -107,7 +101,7 @@ public final class ZipExtractor {
             for (int i = 0; i < candidates.size(); i++) {
                 Candidate c = candidates.get(i);
                 List<String> mapped = plan.targets().get(i);
-                if (settings.consolidate() && !mapped.isEmpty() && mapped.get(0).equalsIgnoreCase(mirror)) {
+                if (settings.consolidate() && !mapped.isEmpty() && mapped.getFirst().equalsIgnoreCase(mirror)) {
                     // Consolidating: the folder that mirrors the zip's file name is not part of the data.
                     if (mapped.size() == 1) {
                         continue;
@@ -121,7 +115,7 @@ public final class ZipExtractor {
                         continue;
                     }
                     report.entries++;
-                    if (plan.kinds().get(i) == ConflictPlanner.Kind.PLACEHOLDER) {
+                    if (plan.kinds().get(i) == Kind.PLACEHOLDER) {
                         report.placeholders++;
                         continue;
                     }
@@ -144,7 +138,7 @@ public final class ZipExtractor {
         return report;
     }
 
-    // ---------------------------------------------------------------- reading and planning
+    // --- reading and planning
 
     private List<Candidate> readEntries(ZipFile zf, ZipReport report, String zipName) {
         List<Candidate> candidates = new ArrayList<>();
@@ -171,12 +165,12 @@ public final class ZipExtractor {
         return candidates;
     }
 
-    private ConflictPlanner.Plan planConflicts(List<Candidate> candidates, ZipReport report, String zipName) {
-        List<ConflictPlanner.Item> items = new ArrayList<>(candidates.size());
+    private Plan planConflicts(List<Candidate> candidates, ZipReport report, String zipName) {
+        List<Item> items = new ArrayList<>(candidates.size());
         for (Candidate c : candidates) {
-            items.add(new ConflictPlanner.Item(c.segments(), c.directory(), c.entry().getSize()));
+            items.add(new Item(c.segments(), c.directory(), c.entry().getSize()));
         }
-        ConflictPlanner.Plan plan = ConflictPlanner.plan(items);
+        Plan plan = ConflictPlanner.plan(items);
         report.folderRedirects = plan.legitimateFiles().size();
         for (String path : plan.legitimateFiles()) {
             log.conflict(zipName + " :: '" + path + "' is both a file and a folder. Kept as a file; "
@@ -189,7 +183,7 @@ public final class ZipExtractor {
         return plan;
     }
 
-    // ---------------------------------------------------------------- integrity (-checkzip)
+    // --- integrity (-checkzip)
 
     private boolean checkIntegrity(ZipFile zf, ZipReport report) {
         boolean ok = true;
@@ -229,7 +223,7 @@ public final class ZipExtractor {
         return ok;
     }
 
-    // ---------------------------------------------------------------- extraction
+    // --- extraction
 
     /** Creates (and returns) the folder for a path, redirecting around any file that is in the way. */
     private Path resolveFolder(List<String> segments, String zipName) throws IOException {
@@ -267,7 +261,7 @@ public final class ZipExtractor {
                                Set<Path> handledByThisZip) throws IOException {
         ZipArchiveEntry e = c.entry();
         Path parent = resolveFolder(mapped.subList(0, mapped.size() - 1), zipName);
-        Path target = parent.resolve(FileNames.sanitize(mapped.get(mapped.size() - 1)));
+        Path target = parent.resolve(FileNames.sanitize(mapped.getLast()));
         if (!target.normalize().startsWith(root)) {
             throw new IOException("path escapes the destination folder");
         }
@@ -367,9 +361,6 @@ public final class ZipExtractor {
         }
     }
 
-    private record Renamed(Path path, boolean identical) {
-    }
-
     /** Finds the first {@code name-N} that is free, or that already holds an identical copy of the entry. */
     private Renamed freeName(Path target, ZipArchiveEntry e) throws IOException {
         Path candidate = target;
@@ -393,7 +384,7 @@ public final class ZipExtractor {
         if (e.getSize() < 0 || Files.size(file) != e.getSize()) {
             return false;
         }
-        boolean checkCrc = settings.verify() == Settings.VerifyMode.CRC || writtenThisRun.containsKey(key(file));
+        boolean checkCrc = settings.verify() == VerifyMode.CRC || writtenThisRun.containsKey(key(file));
         return !checkCrc || (e.getCrc() >= 0 && Checksums.crc32(file) == e.getCrc());
     }
 
@@ -424,7 +415,7 @@ public final class ZipExtractor {
     }
 
     private Result skipped(Decision decision, String zipName, String relative, Path target, Candidate c,
-                           ZipReport report) throws IOException {
+                           ZipReport report) {
         long size = c.entry().getSize();
         long crc = c.entry().getCrc();
         if (decision == Decision.SKIP_IDENTICAL) {
@@ -460,14 +451,14 @@ public final class ZipExtractor {
             log.conflict(zipName + " :: a folder named '" + root.relativize(dir) + "' already exists but this zip "
                     + "has a file with that name. Moving the folder to '" + folder.getFileName() + "'");
             new FolderMerger(root, log, zipName, settings.overwrite(),
-                    settings.verify() == Settings.VerifyMode.CRC).mergeItem(dir, folder, new FolderMerger.Stats());
+                    settings.verify() == VerifyMode.CRC).mergeItem(dir, folder, new FolderMerger.Stats());
         }
     }
 
     // ---------------------------------------------------------------- verification (-verify)
 
     private void verify(List<Result> results, ZipReport report, String zipName) {
-        boolean crcMode = settings.verify() == Settings.VerifyMode.CRC;
+        boolean crcMode = settings.verify() == VerifyMode.CRC;
         for (Result r : results) {
             if (r.outcome() == Outcome.SKIPPED_CONFLICT) {
                 report.verifyUnchecked++;

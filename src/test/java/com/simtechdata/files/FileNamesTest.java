@@ -1,4 +1,4 @@
-package com.icloudextract.files;
+package com.simtechdata.files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

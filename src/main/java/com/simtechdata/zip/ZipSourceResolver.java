@@ -1,4 +1,6 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
+
+import com.simtechdata.records.Resolved;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,9 +33,6 @@ public final class ZipSourceResolver {
         SourceException(String message) {
             super(message);
         }
-    }
-
-    public record Resolved(List<Path> zips, List<String> warnings) {
     }
 
     public static Resolved resolve(Path source) throws SourceException, IOException {

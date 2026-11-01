@@ -1,11 +1,12 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.icloudextract.files.OverwriteMode;
-import com.icloudextract.files.RunLog;
+import com.simtechdata.admin.Settings;
+import com.simtechdata.enums.OverwriteMode;
+import com.simtechdata.admin.RunLog;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import com.simtechdata.enums.VerifyMode;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -48,7 +50,7 @@ class ExtractionTest {
     }
 
     private static Settings settings(Path dest, boolean consolidate, OverwriteMode overwrite,
-                                     Settings.VerifyMode verify) {
+                                     VerifyMode verify) {
         return new Settings(dest, verify, consolidate, overwrite, false, 1);
     }
 
@@ -70,7 +72,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             ZipReport r = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.CRC), log).extract(z);
+                                                    VerifyMode.CRC), log).extract(z);
 
             assertTrue(r.ok(), r.summary(true));
             assertEquals(0, r.failed);
@@ -100,7 +102,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             ZipReport r = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.SIZE), log).extract(z);
+                    VerifyMode.SIZE), log).extract(z);
             assertTrue(r.ok(), r.summary(true));
         }
         assertEquals("latin1 name", read(dest.resolve("Part 1/caf\u00e9.txt")));
@@ -122,8 +124,7 @@ class ExtractionTest {
         Path dest = work.resolve("out");
 
         try (RunLog log = new RunLog(work)) {
-            var noOverwrite = new ZipExtractor(settings(dest, true, OverwriteMode.NONE,
-                    Settings.VerifyMode.NONE), log);
+            var noOverwrite = new ZipExtractor(settings(dest, true, OverwriteMode.NONE, VerifyMode.NONE), log);
             noOverwrite.extract(z1);
             ZipReport r2 = noOverwrite.extract(z2);
 
@@ -143,7 +144,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             ZipReport r = new ZipExtractor(settings(dest, true, OverwriteMode.ALWAYS,
-                    Settings.VerifyMode.CRC), log).extract(z2);
+                    VerifyMode.CRC), log).extract(z2);
             assertEquals(1, r.overwritten);
             // same.txt and only2.txt were both written by the earlier pass and are byte-identical
             assertEquals(2, r.skippedIdentical);
@@ -166,7 +167,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             var extractor = new ZipExtractor(settings(dest, true, OverwriteMode.NEWEST,
-                    Settings.VerifyMode.NONE), log);
+                    VerifyMode.NONE), log);
             assertEquals(1, extractor.extract(older).skippedConflict);
             assertEquals("existing", read(existing));
             assertEquals(1, extractor.extract(newer).overwritten);
@@ -182,7 +183,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             var extractor = new ZipExtractor(settings(dest, true, OverwriteMode.NONE,
-                    Settings.VerifyMode.NONE), log);
+                    VerifyMode.NONE), log);
             assertTrue(extractor.extract(childrenOnly).ok());
             assertTrue(extractor.extract(flatFile).ok());
         }
@@ -198,7 +199,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             var extractor = new ZipExtractor(settings(dest, true, OverwriteMode.NONE,
-                    Settings.VerifyMode.NONE), log);
+                    VerifyMode.NONE), log);
             assertTrue(extractor.extract(flatFile).ok());
             assertTrue(extractor.extract(childrenOnly).ok());
         }
@@ -217,7 +218,7 @@ class ExtractionTest {
         Path dest = work.resolve("out");
 
         try (RunLog log = new RunLog(work)) {
-            var withCheck = new Settings(dest, Settings.VerifyMode.NONE, false, OverwriteMode.NONE, true, 1);
+            var withCheck = new Settings(dest, VerifyMode.NONE, false, OverwriteMode.NONE, true, 1);
             ZipReport r = new ZipExtractor(withCheck, log).extract(z);
             assertTrue(r.integrityFailed);
             assertFalse(r.ok());
@@ -257,7 +258,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             ZipReport r = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.CRC), log).extract(z);
+                    VerifyMode.CRC), log).extract(z);
             assertTrue(r.ok(), r.summary(true));
             assertEquals(2, r.extracted);
             assertEquals(1, r.renamed);
@@ -270,7 +271,7 @@ class ExtractionTest {
         // Running again must not create dup-a-2.txt: both copies are already there and identical.
         try (RunLog log = new RunLog(work)) {
             ZipReport again = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.CRC), log).extract(z);
+                    VerifyMode.CRC), log).extract(z);
             assertTrue(again.ok(), again.summary(true));
             assertEquals(2, again.skippedIdentical);
             assertEquals(0, again.renamed);
@@ -292,7 +293,7 @@ class ExtractionTest {
 
         try (RunLog log = new RunLog(work)) {
             var extractor = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.CRC), log);
+                    VerifyMode.CRC), log);
             ZipReport r = extractor.extract(z);
             assertTrue(r.ok(), r.summary(true));
             assertEquals(1, r.renamed);
@@ -311,14 +312,14 @@ class ExtractionTest {
         Path logs1 = Files.createDirectories(work.resolve("logs1"));
         Path logs2 = Files.createDirectories(work.resolve("logs2"));
         try (RunLog log = new RunLog(logs1)) {
-            new ZipExtractor(settings(dest, false, OverwriteMode.NONE, Settings.VerifyMode.NONE), log)
+            new ZipExtractor(settings(dest, false, OverwriteMode.NONE, VerifyMode.NONE), log)
                     .extract(z);
         }
         // Same name and size, different bytes: trusted on name and size alone, so never read, never logged.
         Files.writeString(dest.resolve("Part 1/Drive/a.txt"), "xyz");
         try (RunLog log = new RunLog(logs2)) {
             ZipReport r = new ZipExtractor(settings(dest, false, OverwriteMode.NONE,
-                    Settings.VerifyMode.NONE), log).extract(z);
+                    VerifyMode.NONE), log).extract(z);
             assertEquals(1, r.skippedIdentical);
         }
         assertEquals("xyz", read(dest.resolve("Part 1/Drive/a.txt")));

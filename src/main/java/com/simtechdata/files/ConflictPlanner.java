@@ -1,5 +1,7 @@
-package com.icloudextract.files;
+package com.simtechdata.files;
 
+import com.simtechdata.enums.Kind;
+import com.simtechdata.records.*;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,21 +31,19 @@ public final class ConflictPlanner {
     private ConflictPlanner() {
     }
 
-    /** One zip entry, reduced to what the planner needs. */
-    public record Item(List<String> segments, boolean directory, long size) {
-    }
-
-    public enum Kind {
-        /** Extract normally to the mapped path. */
-        NORMAL,
-        /** Zero-byte file that should have been a folder: do not write it. */
-        PLACEHOLDER
-    }
-
-    /** Planning result; {@code targets} and {@code kinds} are parallel to the input items. */
-    public record Plan(List<List<String>> targets, List<Kind> kinds, Set<String> legitimateFiles, Set<String> placeholders) {
-    }
-
+    /**
+     * Works out where each entry of one zip should be written, so that no path is both a file and a folder.
+     *
+     * <p>A file entry whose path is also used as a folder is a legitimate file when its size is not zero:
+     * everything inside that path is redirected to a folder named with {@link #FOLDER_SUFFIX} appended. When the
+     * size is zero it is a placeholder that should have been a folder: it is not written and its children keep
+     * the plain folder name.
+     *
+     * @param items every entry of the zip, in archive order, as path segments plus the directory flag and size
+     * @return the plan; {@code targets} and {@code kinds} are parallel to {@code items} (same size and order),
+     *         and the {@code legitimateFiles} and {@code placeholders} sets hold the slash-joined original paths
+     *         of the conflicting files in each category
+     */
     public static Plan plan(List<Item> items) {
         // Every path that is used as a folder: ancestors of any entry, plus explicit directory entries.
         Set<String> folders = new HashSet<>();
@@ -79,7 +79,7 @@ public final class ConflictPlanner {
         }
 
         List<List<String>> targets = new ArrayList<>(items.size());
-        List<Kind> kinds = new ArrayList<>(items.size());
+        List<Kind>         kinds   = new ArrayList<>(items.size());
         for (Item item : items) {
             List<String> segs = item.segments();
             List<String> mapped = new ArrayList<>(segs.size());

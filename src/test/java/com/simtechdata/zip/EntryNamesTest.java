@@ -1,4 +1,4 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

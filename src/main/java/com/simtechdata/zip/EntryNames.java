@@ -1,4 +1,4 @@
-package com.icloudextract.zip;
+package com.simtechdata.zip;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -22,7 +22,6 @@ public final class EntryNames {
             super(message);
         }
     }
-
     /**
      * Windows-1252 characters for the bytes 0x80 to 0x9F; the rest of that code page (0xA0 to 0xFF) is the
      * same as Latin-1. {@code '\uFFFD'} marks the five bytes Windows-1252 leaves undefined.
@@ -78,12 +77,10 @@ public final class EntryNames {
         char c = CP1252_80_9F[unsignedByte - 0x80];
         return c == '\uFFFD' ? '_' : c;
     }
-
     /** True when the (decoded) name denotes a directory entry. */
     public static boolean isDirectoryName(String name) {
         return name.endsWith("/");
     }
-
     /**
      * Splits a decoded entry name into path segments, dropping empty and {@code .} segments.
      *

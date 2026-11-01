@@ -1,4 +1,7 @@
-package com.icloudextract.files;
+package com.simtechdata.files;
+
+import com.simtechdata.admin.RunLog;
+import com.simtechdata.enums.OverwriteMode;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
@@ -27,11 +30,11 @@ public final class FolderMerger {
         public int redirectedToFolderSuffix;
     }
 
-    private final Path root;
+    private final Path   root;
     private final RunLog log;
-    private final String label;
+    private final String        label;
     private final OverwriteMode overwrite;
-    private final boolean useCrc;
+    private final boolean       useCrc;
 
     /**
      * @param root  the destination root, used only to print shorter paths in the log

@@ -1,6 +1,7 @@
-package com.icloudextract.zip;
+package com.simtechdata.admin;
 
-import com.icloudextract.files.OverwriteMode;
+import com.simtechdata.enums.OverwriteMode;
+import com.simtechdata.enums.VerifyMode;
 
 import java.nio.file.Path;
 
@@ -12,6 +13,4 @@ public record Settings(
         OverwriteMode overwrite,
         boolean checkZip,
         int threads) {
-
-    public enum VerifyMode { NONE, SIZE, CRC }
 }

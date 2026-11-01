@@ -30,7 +30,7 @@ to have them all.
 Then, from inside that folder, run 
 
 ```bash
-icloudextract -consolidate -destination <path>
+simtechdata -consolidate -destination <path>
 ```
 
 The other command line options are explained below
@@ -39,7 +39,7 @@ Make sure the destination folder is a clean folder with nothing in it. However, 
 as they are downloaded you should run the program like this:
 
 ```bash
-icloudextract -consolidate -source filename.zip -destination <path>
+simtechdata -consolidate -source filename.zip -destination <path>
 ```
 
 Supply the same destination folder, while providing just the new zip file and the program will simply merge those files into
@@ -106,22 +106,6 @@ If you just run the program from a folder that has the zip files in it, the prog
   - Using this option when the files are being extracted to a bare metal hard drive will most likely slow down the overall process. I dont recommend using this option when you are writing to a bare metal hard drive.
   - Files are unzipped in sequence up to the number of threads you specify. For example, if you have 10 zip files but you use `-threads 5`, zip files 1 through 5 will be extracted immediately then as file extraction finishes, the next zip file in the sequence will be added to the thread pool.
 
-## How conflicts are resolved
-
-| Situation | What iCloudExtract does |
-|---|---|
-| A file entry has content and its path is also used as a folder | The file is extracted as a file. Everything inside that path goes to a folder with `-folder` added to the name, e.g. `Untitled.numbers` and `Untitled.numbers-folder/preview.jpg`. |
-| A **zero-byte** file entry is also used as a folder | Treated as a placeholder that should have been a folder. It is not written; the folder is used as is. |
-| A name contains bytes that are not valid UTF-8 | Those bytes are read as Windows-1252, the code page such names almost always come from, so `caf\xE9` becomes `café` (the five bytes Windows-1252 leaves undefined become `_`). |
-| Two **different** files in the archive get the same name on disk (the same name listed twice, or names that differ only by letter case on a case-insensitive volume) | Both are kept. The later one gets `-1` added to the part of its name before the extension (`song.gcode` and `Song.gcode` become `song.gcode` and `Song-1.gcode`); a name that already ends in `-<number>` has the number increased (`arrow-1.png` becomes `arrow-2.png`). If that name is also taken, the number keeps increasing until the name is free. Each rename is logged. |
-| A folder already on disk (from an earlier zip or run) where a later zip has a file, or the other way round | Same rule: the file keeps its name and the folder becomes `name-folder`. |
-| The file already exists and was **not** written by this run (an earlier zip extraction or an earlier run) and its size matches | Skipped silently, not logged and not read: name and size are trusted. |
-| The file already exists because **this run** wrote it from an earlier zip, and its CRC-32 is identical | Skipped, and logged with the zip it first came from. |
-| The file already exists (from an earlier zip or an earlier run), differs, and has exactly the same name | Skipped and logged, unless `-overwrite` is given. Same-size files count as identical (see above). |
-
-"Legitimate file" means size other than zero. This is a heuristic; if you have a case where it is wrong,
-please open an issue.
-
 ### Progress display
 
 While it runs, the program prints a line for each step: `Unzipping file <name>.zip` (with `into <destination>` when
@@ -156,7 +140,7 @@ mismatch, and `2` for bad arguments.
 
 ## Building
 
-Needs a JDK 21+ and Maven.
+Needs a GraalVM JDK 21+ and Maven.
 
 ```
 mvn package                 # runnable jar: java -jar target/icloudextract.jar ...
@@ -180,3 +164,8 @@ A GitHub Actions workflow (`.github/workflows/build.yml`) builds native executab
   With `-verify crc`, the match test for files already on disk is extended to include the CRC-32 as well.
 * Entry timestamps are applied to the extracted files. File permissions are not (the zips carry none).
 * Encrypted entries and unsupported compression methods are reported as failures; the rest still extract.
+
+
+## Assistance
+
+If you are having any issues using this utility or you find something that this tool is lacking and would like to suggest any changes, open up an issue.

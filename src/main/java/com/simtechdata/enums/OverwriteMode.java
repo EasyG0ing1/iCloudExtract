@@ -1,4 +1,4 @@
-package com.icloudextract.files;
+package com.simtechdata.enums;
 
 /** What to do when a different file is already at the place a file should go. */
 public enum OverwriteMode {

@@ -1,13 +1,15 @@
-package com.icloudextract;
+package com.simtechdata;
 
-import com.icloudextract.files.FolderMerger;
-import com.icloudextract.files.OverwriteMode;
-import com.icloudextract.files.RunLog;
-import com.icloudextract.zip.Progress;
-import com.icloudextract.zip.Settings;
-import com.icloudextract.zip.ZipExtractor;
-import com.icloudextract.zip.ZipReport;
-import com.icloudextract.zip.ZipSourceResolver;
+import com.simtechdata.enums.VerifyMode;
+import com.simtechdata.files.FolderMerger;
+import com.simtechdata.enums.OverwriteMode;
+import com.simtechdata.admin.RunLog;
+import com.simtechdata.admin.Progress;
+import com.simtechdata.admin.Settings;
+import com.simtechdata.records.Resolved;
+import com.simtechdata.zip.ZipExtractor;
+import com.simtechdata.zip.ZipReport;
+import com.simtechdata.zip.ZipSourceResolver;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,8 +27,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(
-        name = "icloudextract",
-        version = "icloudextract 1.0.0",
+        name = "simtechdata",
+        version = "simtechdata 1.0.0",
         sortOptions = false,
         usageHelpAutoWidth = true,
         description = {
@@ -44,9 +46,9 @@ import picocli.CommandLine.Option;
                 "  iCloudExtract-conflicts.log  skipped, overwritten and redirected files",
                 "",
                 "Examples:",
-                "  icloudextract -source ~/Downloads -destination ~/Extracted",
-                "  icloudextract -source ~/Downloads -destination ~/iCloudDrive -consolidate -verify crc",
-                "  icloudextract -destination out -overwrite newest -threads 4 -checkzip"})
+                "  simtechdata -source ~/Downloads -destination ~/Extracted",
+                "  simtechdata -source ~/Downloads -destination ~/iCloudDrive -consolidate -verify crc",
+                "  simtechdata -destination out -overwrite newest -threads 4 -checkzip"})
 public final class Main implements java.util.concurrent.Callable<Integer> {
 
     @Option(names = {"-destination", "--destination"}, defaultValue = "iCloudExtract", paramLabel = "<folder>",
@@ -117,8 +119,8 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
             return 2;
         }
 
-        Path sourcePath = Path.of(source).toAbsolutePath().normalize();
-        ZipSourceResolver.Resolved resolved;
+        Path                       sourcePath = Path.of(source).toAbsolutePath().normalize();
+        Resolved resolved;
         try {
             resolved = ZipSourceResolver.resolve(sourcePath);
         } catch (ZipSourceResolver.SourceException e) {
@@ -243,11 +245,11 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         if (threads < 1) {
             throw new IllegalArgumentException("-threads must be at least 1");
         }
-        Settings.VerifyMode verifyMode = Settings.VerifyMode.NONE;
+        VerifyMode verifyMode = VerifyMode.NONE;
         if (verify != null) {
             switch (verify.toLowerCase(Locale.ROOT)) {
-                case "size" -> verifyMode = Settings.VerifyMode.SIZE;
-                case "crc" -> verifyMode = Settings.VerifyMode.CRC;
+                case "size" -> verifyMode = VerifyMode.SIZE;
+                case "crc" -> verifyMode = VerifyMode.CRC;
                 default -> throw new IllegalArgumentException(
                         "-verify accepts no value (size check) or 'crc', not '" + verify + "'");
             }
@@ -268,7 +270,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         return new Settings(dest, verifyMode, consolidate, overwriteMode, checkZip, threads);
     }
 
-    private int run(Settings settings, ZipSourceResolver.Resolved resolved, Path sourcePath, RunLog log,
+    private int run(Settings settings, Resolved resolved, Path sourcePath, RunLog log,
                     List<Path> mirrors) throws IOException, InterruptedException {
         Files.createDirectories(settings.destination());
         List<Path> zips = resolved.zips();
@@ -292,10 +294,10 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
             log.warn(notice);
         }
 
-        boolean verifying = settings.verify() != Settings.VerifyMode.NONE;
+        boolean verifying = settings.verify() != VerifyMode.NONE;
         int total = zips.size();
         List<Future<ZipReport>> futures = new ArrayList<>();
-        boolean crc = settings.verify() == Settings.VerifyMode.CRC;
+        boolean crc = settings.verify() == VerifyMode.CRC;
         Progress progress = new Progress(Progress.onTerminal());
         int failedZips = 0;
         int entries = 0;

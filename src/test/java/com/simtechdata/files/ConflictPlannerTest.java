@@ -1,7 +1,11 @@
-package com.icloudextract.files;
+package com.simtechdata.files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+
+import com.simtechdata.enums.Kind;
+import com.simtechdata.records.*;
 
 import java.util.List;
 import java.util.Set;
@@ -10,12 +14,12 @@ import org.junit.jupiter.api.Test;
 
 class ConflictPlannerTest {
 
-    private static ConflictPlanner.Item file(String path, long size) {
-        return new ConflictPlanner.Item(List.of(path.split("/")), false, size);
+    private static Item file(String path, long size) {
+        return new Item(List.of(path.split("/")), false, size);
     }
 
-    private static ConflictPlanner.Item dir(String path) {
-        return new ConflictPlanner.Item(List.of(path.split("/")), true, 0);
+    private static Item dir(String path) {
+        return new Item(List.of(path.split("/")), true, 0);
     }
 
     @Test
@@ -32,7 +36,7 @@ class ConflictPlannerTest {
         assertEquals(List.of("Drive", "Untitled.numbers-folder", "Metadata", "Properties.plist"),
                 plan.targets().get(2));
         assertEquals(List.of("Drive", "Other.numbers"), plan.targets().get(3));
-        assertTrue(plan.kinds().stream().allMatch(k -> k == ConflictPlanner.Kind.NORMAL));
+        assertTrue(plan.kinds().stream().allMatch(k -> k == Kind.NORMAL));
     }
 
     @Test
@@ -43,7 +47,7 @@ class ConflictPlannerTest {
 
         assertEquals(Set.of("Drive/Folder"), plan.placeholders());
         assertTrue(plan.legitimateFiles().isEmpty());
-        assertEquals(ConflictPlanner.Kind.PLACEHOLDER, plan.kinds().get(0));
+        assertEquals(Kind.PLACEHOLDER, plan.kinds().getFirst());
         assertEquals(List.of("Drive", "Folder", "a.txt"), plan.targets().get(1));
     }
 
