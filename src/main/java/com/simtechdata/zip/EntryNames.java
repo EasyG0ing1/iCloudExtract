@@ -9,6 +9,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /** Turns raw zip entry names into path segments. */
 public final class EntryNames {
@@ -101,5 +102,23 @@ public final class EntryNames {
             result.add(part);
         }
         return result;
+    }
+
+    /** The name of the folder that mirrors a zip file in the export: the zip's file name without {@code .zip}. */
+    public static String mirrorName(String zipName) {
+        return zipName.toLowerCase(Locale.ROOT).endsWith(".zip")
+                ? zipName.substring(0, zipName.length() - 4) : zipName;
+    }
+
+    /**
+     * Used when consolidating: drops the first path segment when it is the mirror folder (compared without regard
+     * to letter case), so the contents of all the zips merge into one tree. Returns an empty list when the path was
+     * only the mirror folder itself; any other path is returned unchanged.
+     */
+    public static List<String> withoutMirror(List<String> mapped, String mirror) {
+        if (!mapped.isEmpty() && mapped.getFirst().equalsIgnoreCase(mirror)) {
+            return mapped.subList(1, mapped.size());
+        }
+        return mapped;
     }
 }

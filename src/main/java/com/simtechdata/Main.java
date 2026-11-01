@@ -6,9 +6,13 @@ import com.simtechdata.enums.OverwriteMode;
 import com.simtechdata.admin.RunLog;
 import com.simtechdata.admin.Progress;
 import com.simtechdata.admin.Settings;
+import com.simtechdata.files.FileSizes;
+import com.simtechdata.files.FileSystemProbe;
 import com.simtechdata.records.Resolved;
+import com.simtechdata.records.SizeReport;
 import com.simtechdata.zip.ZipExtractor;
 import com.simtechdata.zip.ZipReport;
+import com.simtechdata.zip.ZipSizer;
 import com.simtechdata.zip.ZipSourceResolver;
 
 import java.io.IOException;
@@ -96,6 +100,14 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
             description = "How many zip files to extract at the same time. Default: ${DEFAULT-VALUE}.")
     private int threads;
 
+    @Option(names = {"-getTotal", "--getTotal"},
+            description = {"Add up how much disk space the extraction needs, without extracting anything.",
+                    "Only the zips' tables of contents are read. Entries that would never be written are left out:",
+                    "identical copies of a file already extracted from an earlier zip, files that lose to a different",
+                    "file at the same path, and files replaced by a later version, following -consolidate and",
+                    "-overwrite. Assumes an empty destination and the zips extracted one after the other."})
+    private boolean getTotal;
+
     @Option(names = {"-help", "--help"}, usageHelp = true, description = "Show this help and exit.")
     private boolean help;
 
@@ -131,6 +143,9 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         for (String warning : resolved.warnings()) {
             System.err.println("Warning: " + warning);
         }
+        if (getTotal) {
+            return printTotal(settings, resolved, sourcePath);
+        }
         if (resolved.zips().size() > 1 && !yes) {
             Boolean answer = confirm(settings, resolved.zips());
             if (answer == null) {
@@ -163,6 +178,59 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         try (RunLog log = new RunLog(cwd)) {
             return run(settings, resolved, sourcePath, log, mirrors);
         }
+    }
+
+    /** {@code -getTotal}: reads the zips' tables of contents and reports the space the extraction would need. */
+    private static int printTotal(Settings settings, Resolved resolved, Path sourcePath) {
+        List<Path> zips = resolved.zips();
+        boolean caseInsensitive = FileSystemProbe.isCaseInsensitive(settings.destination());
+        System.out.println("Source: " + sourcePath + " (" + zips.size() + " zip file(s))");
+        System.out.println("Nothing is extracted or written. Reading the zips' tables of contents...");
+        SizeReport r = ZipSizer.measure(zips, settings.consolidate(), settings.overwrite(), caseInsensitive,
+                System.out::println);
+
+        System.out.println();
+        System.out.println("Total size to extract: " + FileSizes.format(r.extractedBytes())
+                + "  (" + FileSizes.exact(r.extractedBytes()) + " in " + String.format("%,d", r.extractedFiles())
+                + " files)");
+        System.out.println();
+        System.out.println("File entries in the zips : " + String.format("%,d", r.fileEntries())
+                + " (" + FileSizes.format(r.entryBytes()) + ")");
+        if (r.identicalSkipped() > 0) {
+            System.out.println("Identical copies skipped : " + String.format("%,d", r.identicalSkipped())
+                    + " (" + FileSizes.format(r.identicalBytes()) + ")");
+        }
+        if (r.conflictsSkipped() > 0) {
+            System.out.println("Different copies skipped : " + String.format("%,d", r.conflictsSkipped())
+                    + " (" + FileSizes.format(r.conflictBytes()) + ")  - "
+                    + (settings.overwrite() == OverwriteMode.NONE
+                    ? "the first one wins; use -overwrite to let later ones replace it"
+                    : "the existing file is the same age or newer"));
+        }
+        if (r.replacedFiles() > 0) {
+            System.out.println("Replaced by a later copy : " + String.format("%,d", r.replacedFiles())
+                    + " (" + FileSizes.format(r.replacedBytes()) + ")");
+        }
+        if (r.renamed() > 0) {
+            System.out.println("Kept under a new name    : " + String.format("%,d", r.renamed())
+                    + "  (name collisions; their size is included above)");
+        }
+        System.out.println("Settings used            : " + (settings.consolidate() ? "-consolidate" : "no -consolidate")
+                + ", overwrite " + settings.overwrite().name().toLowerCase(Locale.ROOT)
+                + ", names " + (caseInsensitive ? "case-insensitive" : "case-sensitive")
+                + " (file system of " + settings.destination() + ")");
+
+        int status = 0;
+        for (String problem : r.unreadableZips()) {
+            System.err.println("Could not read " + problem);
+            status = 1;
+        }
+        if (r.unreadableEntries() > 0) {
+            System.err.println(r.unreadableEntries() + " entr" + (r.unreadableEntries() == 1 ? "y" : "ies")
+                    + " could not be used and " + (r.unreadableEntries() == 1 ? "is" : "are") + " not counted.");
+            status = 1;
+        }
+        return status;
     }
 
     /** Folders in the destination that are named after the zip files about to be consolidated. */

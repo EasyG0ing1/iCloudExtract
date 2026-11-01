@@ -70,7 +70,7 @@ I wrote this utility.
 
 ```
 icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-consolidate]
-              [-overwrite [newest]] [-checkzip] [-threads <n>] [-yes]
+              [-overwrite [newest]] [-checkzip] [-threads <n>] [-getTotal] [-yes]
 ```
 
 | Option | Meaning |
@@ -85,6 +85,7 @@ icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-c
 | `-overwrite newest` | Same as -overwrite, but it only overwrites the destination file when the source file is newer. |
 | `-checkzip` | This will run a validation check on the zip file before extracting it and if the check fails, the files will not be extracted from that zip file. |
 | `-threads <n>` | Unzip more than one zip file simultaneously. This is especially effective when you are unzipping to a solid state hard drive (see discussion below). |
+| `-getTotal` | Shows how much disk space the extraction needs, without extracting anything or writing any files. It reads only the table of contents of each zip, so it is fast, and it leaves out everything that would never be written: identical copies of a file that an earlier zip already provides, files that lose to a different file at the same path, and files replaced by a later version. It follows `-source`, `-consolidate` and `-overwrite`, and assumes an empty destination and the zips extracted one after the other. The result is shown like `83.42 GB`, with the exact number of bytes beside it. |
 | `-help`, `-version` | View the programs help text or the version of the program. |
 
 Every option also works with two dashes (`--destination`).

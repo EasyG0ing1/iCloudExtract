@@ -73,8 +73,7 @@ public final class ZipExtractor {
     public ZipReport extract(Path zip) {
         String zipName = zip.getFileName().toString();
         ZipReport report = new ZipReport(zipName);
-        String mirror = zipName.toLowerCase(Locale.ROOT).endsWith(".zip")
-                ? zipName.substring(0, zipName.length() - 4) : zipName;
+        String mirror = EntryNames.mirrorName(zipName);
 
         try (ZipFile zf = ZipFile.builder()
                 .setPath(zip)
@@ -101,12 +100,12 @@ public final class ZipExtractor {
             for (int i = 0; i < candidates.size(); i++) {
                 Candidate c = candidates.get(i);
                 List<String> mapped = plan.targets().get(i);
-                if (settings.consolidate() && !mapped.isEmpty() && mapped.getFirst().equalsIgnoreCase(mirror)) {
+                if (settings.consolidate()) {
                     // Consolidating: the folder that mirrors the zip's file name is not part of the data.
-                    if (mapped.size() == 1) {
+                    mapped = EntryNames.withoutMirror(mapped, mirror);
+                    if (mapped.isEmpty()) {
                         continue;
                     }
-                    mapped = mapped.subList(1, mapped.size());
                 }
                 try {
                     if (c.directory()) {
