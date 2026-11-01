@@ -48,7 +48,7 @@ import picocli.CommandLine.Option;
         footer = {
                 "",
                 "The log is written to the folder the program was started from, as one CSV file per run:",
-                "  iCloudExtract-yyyy-MM-dd_HH-mm-ss.log",
+                "  iCloudExtract-yyyy-MM-dd_HH-mm-ss.csv",
                 "  columns: date/time,ZipFile,Reason,Action,File(Path),Discussion",
                 "",
                 "Examples:",

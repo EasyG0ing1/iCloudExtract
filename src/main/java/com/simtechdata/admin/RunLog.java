@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * The log of one run: a single CSV file named {@code iCloudExtract-yyyy-MM-dd_HH-mm-ss.log} (the start time of the
+ * The log of one run: a single CSV file named {@code iCloudExtract-yyyy-MM-dd_HH-mm-ss.csv} (the start time of the
  * run), written to the folder the program was started from. Every line, whether it is a conflict, an error, a warning
  * or a note about the run itself, has the same six columns, so the file opens in a spreadsheet:
  *
@@ -41,7 +41,7 @@ public final class RunLog implements Closeable {
 
     /** The start time is a parameter so the file name can be tested. */
     RunLog(Path directory, LocalDateTime started) {
-        this.file = directory.resolve("iCloudExtract-" + FILE_STAMP.format(started) + ".log");
+        this.file = directory.resolve("iCloudExtract-" + FILE_STAMP.format(started) + ".csv");
     }
 
     /** The log file of this run. */

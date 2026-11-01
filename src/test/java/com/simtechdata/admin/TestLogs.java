@@ -11,11 +11,11 @@ public final class TestLogs {
     private TestLogs() {
     }
 
-    /** The text of every {@code iCloudExtract-*.log} in the folder, or an empty string when there is none. */
+    /** The text of every {@code iCloudExtract-*.csv} in the folder, or an empty string when there is none. */
     public static String text(Path directory) throws IOException {
         StringBuilder all = new StringBuilder();
         try (Stream<Path> files = Files.list(directory)) {
-            for (Path p : files.filter(f -> f.getFileName().toString().matches("iCloudExtract-.*\\.log")).sorted().toList()) {
+            for (Path p : files.filter(f -> f.getFileName().toString().matches("iCloudExtract-.*\\.csv")).sorted().toList()) {
                 all.append(Files.readString(p));
             }
         }

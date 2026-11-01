@@ -59,13 +59,13 @@ class RunLogTest {
     @Test
     void theFileIsNamedAfterTheStartTimeAndCreatedOnFirstUse(@TempDir Path dir) throws Exception {
         try (RunLog log = new RunLog(dir, STARTED)) {
-            assertEquals("iCloudExtract-2026-11-01_05-45-12.log", log.file().getFileName().toString());
+            assertEquals("iCloudExtract-2026-11-01_05-45-12.csv", log.file().getFileName().toString());
             try (Stream<Path> files = Files.list(dir)) {
                 assertEquals(0, files.count(), "nothing is created before the first line");
             }
             log.info("", "hello");
         }
-        assertTrue(Files.exists(dir.resolve("iCloudExtract-2026-11-01_05-45-12.log")));
+        assertTrue(Files.exists(dir.resolve("iCloudExtract-2026-11-01_05-45-12.csv")));
     }
 
     @Test
@@ -88,7 +88,7 @@ class RunLogTest {
             log.warn("Part 1.zip", "careful");
             log.record("Part 2.zip", LogReason.ERROR, LogAction.FAILED, "Drive/b.txt", "boom");
         }
-        String text = Files.readString(dir.resolve("iCloudExtract-2026-11-01_05-45-12.log"));
+        String text = Files.readString(dir.resolve("iCloudExtract-2026-11-01_05-45-12.csv"));
         assertTrue(text.startsWith("date/time,ZipFile,Reason,Action,File(Path),Discussion\n"), text);
         List<List<String>> rows = parse(text);
         assertEquals(5, rows.size());
@@ -103,6 +103,18 @@ class RunLogTest {
         assertEquals("Drive/a.txt", skipped.get(4));
         assertEquals("Identical to Part 0.zip", skipped.get(5));
         assertEquals("", rows.get(1).get(1), "a note about the whole run has no zip file");
+    }
+
+    @Test
+    void theFirstLineHoldsTheColumnTitlesSoASpreadsheetShowsThemAsHeadings(@TempDir Path dir) throws Exception {
+        try (RunLog log = new RunLog(dir, STARTED)) {
+            log.info("", "anything");
+        }
+        String firstLine = Files.readAllLines(log(dir)).getFirst();
+        assertEquals("date/time,ZipFile,Reason,Action,File(Path),Discussion", firstLine);
+        assertEquals(List.of("date/time", "ZipFile", "Reason", "Action", "File(Path)", "Discussion"),
+                parse(firstLine + "\n").getFirst());
+        assertTrue(log(dir).getFileName().toString().endsWith(".csv"));
     }
 
     @Test
@@ -176,7 +188,7 @@ class RunLogTest {
 
     private static Path log(Path dir) throws IOException {
         try (Stream<Path> files = Files.list(dir)) {
-            return files.filter(f -> f.getFileName().toString().endsWith(".log")).findFirst().orElseThrow();
+            return files.filter(f -> f.getFileName().toString().endsWith(".csv")).findFirst().orElseThrow();
         }
     }
 }
