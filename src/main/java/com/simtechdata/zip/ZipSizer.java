@@ -60,7 +60,8 @@ public final class ZipSizer {
      * @param overwrite       what happens when a different file is already at a path
      * @param caseInsensitive whether the destination file system ignores letter case in names
      * @param threads         how many zips to read at the same time (at least 1)
-     * @param progress        receives a line of text as each zip has been read (possibly from several threads)
+     * @param progress        receives a line of text when a thread starts on a zip and another when it has finished
+     *                        it (possibly from several threads at once)
      */
     public static SizeReport measure(List<Path> zips, boolean consolidate, OverwriteMode overwrite,
                                      boolean caseInsensitive, int threads, Consumer<String> progress) {
@@ -77,10 +78,12 @@ public final class ZipSizer {
                 final int number = i + 1;
                 final Path zip = zips.get(i);
                 futures.add(pool.submit(() -> {
+                    // Said at once, so the user sees every zip that is being read right now.
+                    progress.accept("Reading " + zip.getFileName() + " ...");
                     List<ZipFileMeta> mine = new ArrayList<>();
                     Scan scan = scan(zip, number, consolidate, mine);
                     master.addAll(mine);
-                    progress.accept("[" + finished.incrementAndGet() + "/" + total + "] Read " + scan.zipName()
+                    progress.accept("[" + finished.incrementAndGet() + "/" + total + "] Finished " + scan.zipName()
                             + (scan.error() == null ? "" : "  (could not be read)"));
                     return scan;
                 }));

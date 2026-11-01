@@ -253,17 +253,27 @@ class ZipSizerTest {
     }
 
     @Test
-    void progressIsReportedOncePerZip(@TempDir Path work) throws Exception {
+    void progressIsReportedWhenAZipStartsAndWhenItFinishes(@TempDir Path work) throws Exception {
         List<Path> zips = List.of(
                 zip(work.resolve("Part 1.zip"), entries("Part 1/Drive/a.txt", "a"), 1_700_000_000_000L),
                 zip(work.resolve("Part 2.zip"), entries("Part 2/Drive/b.txt", "b"), 1_700_000_000_000L),
                 zip(work.resolve("Part 3.zip"), entries("Part 3/Drive/c.txt", "c"), 1_700_000_000_000L));
         List<String> lines = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         ZipSizer.measure(zips, true, OverwriteMode.NONE, true, 3, lines::add);
-        assertEquals(3, lines.size());
+        assertEquals(6, lines.size(), lines.toString());
         for (int n = 1; n <= 3; n++) {
-            final int zipNumber = n;
-            assertTrue(lines.stream().anyMatch(l -> l.contains("Part " + zipNumber + ".zip")), lines.toString());
+            String name = "Part " + n + ".zip";
+            int started = -1;
+            int finished = -1;
+            for (int i = 0; i < lines.size(); i++) {
+                if (lines.get(i).startsWith("Reading " + name)) {
+                    started = i;
+                } else if (lines.get(i).contains("Finished " + name)) {
+                    finished = i;
+                }
+            }
+            assertTrue(started >= 0, "no start line for " + name + ": " + lines);
+            assertTrue(finished > started, "the finish line must come after the start line for " + name + ": " + lines);
         }
     }
 }
