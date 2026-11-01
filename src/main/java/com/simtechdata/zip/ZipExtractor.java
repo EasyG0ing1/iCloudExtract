@@ -119,10 +119,12 @@ public final class ZipExtractor {
                         continue;
                     }
                     Result r = extractFile(zf, c, mapped, report, zipName, handledByThisZip);
+                    progress.bytesHandled(c.entry().getSize());   // feeds the time-left estimate
                     if (verifying) {
                         results.add(r);
                     }
                 } catch (Exception e) {
+                    progress.bytesHandled(c.entry().getSize());
                     fail(report, zipName, c.name(), e);
                 }
             }

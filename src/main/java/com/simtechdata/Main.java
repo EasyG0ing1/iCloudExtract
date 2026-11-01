@@ -236,6 +236,27 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         return status;
     }
 
+    /**
+     * Works out, in the background while the extraction runs, the grand total of bytes the zips hold (the same
+     * table-of-contents pass as {@code -getTotal}). Until it is done the "est. ... left" part of the spinner line
+     * reads {@code --:--:--}; if it fails there is simply no estimate.
+     */
+    private static void startEstimate(List<Path> zips, Settings settings, Progress progress) {
+        progress.estimating();
+        Thread thread = new Thread(() -> {
+            try {
+                boolean caseInsensitive = FileSystemProbe.isCaseInsensitive(settings.destination());
+                SizeReport sizes = ZipSizer.measure(zips, settings.consolidate(), settings.overwrite(),
+                        caseInsensitive, 1, line -> { });
+                progress.expectBytes(sizes.entryBytes());
+            } catch (RuntimeException e) {
+                // no estimate; the line keeps showing --:--:--
+            }
+        }, "estimate");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     /** Folders in the destination that are named after the zip files about to be consolidated. */
     private static List<Path> existingMirrorFolders(Path destination, List<Path> zips) {
         List<Path> found = new ArrayList<>();
@@ -370,6 +391,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         List<Future<ZipReport>> futures = new ArrayList<>();
         boolean crc = settings.verify() == VerifyMode.CRC;
         Progress progress = new Progress(Progress.onTerminal());
+        progress.totalZips(total);
         int failedZips = 0;
         int entries = 0;
         int extracted = 0;
@@ -381,6 +403,9 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         int verifyBad = 0;
         try {
             progress.start();
+            if (progress.animated()) {
+                startEstimate(zips, settings, progress);
+            }
             if (!mirrors.isEmpty()) {
                 FolderMerger.Stats moved = new FolderMerger.Stats();
                 for (Path mirror : mirrors) {

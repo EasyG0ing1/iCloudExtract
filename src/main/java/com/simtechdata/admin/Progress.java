@@ -2,12 +2,14 @@ package com.simtechdata.admin;
 
 import java.time.Duration;
 import java.util.LinkedHashSet;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.LongSupplier;
 
 /**
  * What the user sees while the program runs: permanent lines for each step, and (on a terminal) a spinning
- * line {@code / - \ |} with the running time as HH:MM:SS and the current activity. Without a terminal there
- * is no spinner, only the permanent lines.
+ * line {@code / - \ |} with the running time as HH:MM:SS, how many zip files are done out of the total, an estimate
+ * of the time left, and the current activity. Without a terminal there is no spinner, only the permanent lines.
  */
 public final class Progress implements AutoCloseable {
 
@@ -17,15 +19,53 @@ public final class Progress implements AutoCloseable {
     private static final char[] SPINNER = {'/', '-', '\\', '|'};
 
     private final boolean animate;
-    private final long startNanos = System.nanoTime();
+    private final LongSupplier clock;
+    private final long startNanos;
+    private final RateEstimator estimator;
     private final Set<String> active = new LinkedHashSet<>();
     private String activity = "";
+    private int totalZips;
+    private int doneZips;
+    private boolean estimating;
     private int shownWidth;
     private Thread thread;
     private volatile boolean running;
 
     public Progress(boolean animate) {
+        this(animate, System::nanoTime);
+    }
+
+    /** The clock is a parameter so the display can be tested. */
+    Progress(boolean animate, LongSupplier clock) {
         this.animate = animate;
+        this.clock = clock;
+        this.startNanos = clock.getAsLong();
+        this.estimator = new RateEstimator(clock);
+    }
+
+    /** True when the spinner line is shown (standard output is a terminal). */
+    public boolean animated() {
+        return animate;
+    }
+
+    /** How many zip files this run will unzip; shown as {@code (done/total)} on the spinner line. */
+    public synchronized void totalZips(int total) {
+        totalZips = total;
+    }
+
+    /** Turns on the "est. HH:MM:SS left" part of the spinner line; it reads {@code --:--:--} until the total is known. */
+    public synchronized void estimating() {
+        estimating = true;
+    }
+
+    /** The grand total of bytes the run will deal with, once it is known. */
+    public void expectBytes(long totalBytes) {
+        estimator.expect(totalBytes);
+    }
+
+    /** A file of this many bytes is finished (written, skipped or failed). Called from every extraction thread. */
+    public void bytesHandled(long bytes) {
+        estimator.handled(bytes);
     }
 
     /** True when standard output is an interactive terminal. */
@@ -46,7 +86,7 @@ public final class Progress implements AutoCloseable {
     }
 
     public String elapsed() {
-        return clock(Duration.ofNanos(System.nanoTime() - startNanos).toSeconds());
+        return clock(Duration.ofNanos(clock.getAsLong() - startNanos).toSeconds());
     }
 
     public synchronized void start() {
@@ -81,7 +121,9 @@ public final class Progress implements AutoCloseable {
     }
 
     public synchronized void end(String zip) {
-        active.remove(zip);
+        if (active.remove(zip)) {
+            doneZips++;
+        }
         activity = active.isEmpty() ? "" : "Unzipping " + String.join(", ", active);
     }
 
@@ -101,10 +143,7 @@ public final class Progress implements AutoCloseable {
         if (!running) {
             return;
         }
-        String text = spin + " " + elapsed() + (activity.isEmpty() ? "" : "  " + activity);
-        if (text.length() > 79) {
-            text = text.substring(0, 76) + "...";
-        }
+        String text = statusText(spin);
         StringBuilder sb = new StringBuilder("\r").append(text);
         for (int i = text.length(); i < shownWidth; i++) {
             sb.append(' ');
@@ -112,6 +151,23 @@ public final class Progress implements AutoCloseable {
         shownWidth = Math.max(shownWidth, text.length());
         System.out.print(sb);
         System.out.flush();
+    }
+
+    /** The spinner line: spinner, time, estimate, zips done, and what is going on (cut to fit 79 columns). */
+    synchronized String statusText(char spin) {
+        StringBuilder text = new StringBuilder().append(spin).append(' ').append(elapsed());
+        if (estimating) {
+            OptionalLong left = estimator.secondsRemaining();
+            text.append("  est. ").append(left.isPresent() ? clock(left.getAsLong()) : "--:--:--").append(" left");
+        }
+        if (totalZips > 0) {
+            text.append("  (").append(doneZips).append('/').append(totalZips).append(')');
+        }
+        if (!activity.isEmpty()) {
+            text.append("  ").append(activity);
+        }
+        String result = text.toString();
+        return result.length() > 79 ? result.substring(0, 76) + "..." : result;
     }
 
     private void clearSpinner() {

@@ -23,6 +23,13 @@ logs every problem, and can verify that everything made it out.
 * **The zip stores no file attributes at all** (no modes, no directory flags). Folders are only implied
   by the paths.
 
+The problem is with the programs that extract the files from these archives, which are created in a way that causes the
+extraction programs to struggle or choke.
+
+iCloudExtract does not rely on any of the unzip utilities and instead it uses a native Java zip library so that it can have
+total control over every aspect of the file extraction process, so that you know with certainty that all of your data
+has been extracted from the Apple generated zip files.
+
 ## Best Use
 
 The best way to use this program is to get all of the partial zip files downloaded into a single folder where the zip
@@ -70,7 +77,7 @@ I wrote this utility.
 
 ```
 icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-consolidate]
-              [-overwrite [newest]] [-checkzip] [-threads <n>] [-getTotal] [-yes]
+              [-overwrite [newest]] [-checkzip] [-threads <n>] [-yes]
 ```
 
 | Option | Meaning |
@@ -85,14 +92,14 @@ icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-c
 | `-overwrite newest` | Same as -overwrite, but it only overwrites the destination file when the source file is newer. |
 | `-checkzip` | This will run a validation check on the zip file before extracting it and if the check fails, the files will not be extracted from that zip file. |
 | `-threads <n>` | Unzip more than one zip file simultaneously. This is especially effective when you are unzipping to a solid state hard drive (see discussion below). |
-| `-getTotal` | Shows how much disk space the extraction needs, without extracting anything or writing any files. It reads only the table of contents of each zip, so it is fast, and it leaves out everything that would never be written: identical copies of a file that an earlier zip already provides, files that lose to a different file at the same path, and files replaced by a later version. It follows `-source`, `-consolidate` and `-overwrite`, and assumes an empty destination and the zips extracted one after the other. The result is shown like `83.42 GB`, with the exact number of bytes beside it. |
+| `-getTotal` | Grabs the extracted file sizes and applies the conflict logic and gives you the total space that will be consumed on your drive after extraction. |
 | `-help`, `-version` | View the programs help text or the version of the program. |
 
 Every option also works with two dashes (`--destination`).
 
 ## About Program Arguments
 
-If you just run the program from a folder that has the zip files in it, the program will extract each zip file into its own separate folder. If you use any of the arguments, this behavior is worth noteng:
+If you just run the program from a folder that has the zip files in it, the program will extract each zip file into its own separate folder. If you use any of the arguments, this information will be helpful:
 
 `-source` 
   - can be a single zip file or a path to a folder that has one or more of your downloaded zip files
@@ -101,13 +108,14 @@ If you just run the program from a folder that has the zip files in it, the prog
   - This option is meant for use in a script file so that nothing stops the program from running
 
 `-consolidate` 
-  - This option can do different things depending on the state of your overall file extraction:
+
+This option can do different things depending on the state of your overall file extraction:
   - You can start extracting zip files individually as they are downloaded using the consolidate argument. You just need to make sure that the `-destination` path is the same each time you run the program for the different zip files. It will consolidate and resolve conflicts based on the default rules or based on the arguments you use that can affect how the program resolves conflicts (such as the `-overwrite` option).
   - If you have multiple zip files already extracted into individual folders, then using `-consolidate` will look in the destination folder and it will resolve the path that is common to each individual folder and then it will simply create the common path and it will move the files from each folder into the common path, creating the consolidated folder. It follows all of the same rules for conflict resolution as it would if it were unzipping files.
   - When files have already been written to disk at the time you run `iCloudExtract`, and a source file is the exact same file that is already in the destination, it will skip that file and NOT log it.
 
 `-overwrite` 
-  - when this option is NOT used, files having the same name and size will be compared by CRC value and when they are identical, no overwrite will be done. However, if there is a descrepency, then the program will take action and log what it did.
+  - When this option is NOT used, files having the same name and size will be compared by CRC value and when they are identical, no overwrite will be done. However, if there is a descrepency, then the program will take action and log what it did.
   - Using this argument will change that behavior where it will always overwrite the destination file with the source file regardless of CRC checks. And by default it will extract each zip file in sequence so by default the next zip file containing a matching destination file will be overwritten with the file in that next sequential zip file.
   - Using the `-threads` argument offers no way to predict which source file will overwrite an existing destination file because sequence is generally ignored when you use that argument.
   - Using `-overwrite newest` will only overwrite the file when the source file is newer.
@@ -115,15 +123,12 @@ If you just run the program from a folder that has the zip files in it, the prog
 `-threads`
   - This option is incredibly useful when you are extracting files onto a solid state drive (nVme etc.), because it launches new threads for each zip file and extracts them simultaneously. And because solid state drives have no moving parts, this can make the overall extraction process incredibly fast.
   - Using this option when the files are being extracted to a bare metal hard drive will most likely slow down the overall process. I dont recommend using this option when you are writing to a bare metal hard drive.
-  - Files are unzipped in sequence up to the number of threads you specify. For example, if you have 10 zip files but you use `-threads 5`, zip files 1 through 5 will be extracted immediately then as file extraction finishes, the next zip file in the sequence will be added to the thread pool.
+  - Files are unzipped in sequence up to the number of threads you specify. For example, if you have 10 zip files but you use `-threads 5` then zip files 1 through 5 will be extracted immediately then as file extraction finishes, the next zip file in the sequence will be added to the thread pool.
 
-### Progress display
-
-While it runs, the program prints a line for each step: `Unzipping file <name>.zip` (with `into <destination>` when
-`-consolidate` is on), and `Moving files for consolidation: ...` while zip-named folders are being moved up. On
-a terminal, a spinning line (`/ - \ |`) sits below them with the running time as `HH:MM:SS` and what is being done
-right now; it carries on as each next zip starts. When everything is done it prints a summary, the elapsed time and
-where the log files are. If the output is redirected to a file, only the plain lines are printed (no spinner).
+`-getTotal`
+  - The point of this option is to know how much storage space will be consumed on your hard drive after the zip files have been extracted.
+  - It will calculate the space using whichever zip files you specify using the `-source` option. This means if you specity a single zip file, it will only sum up the file sizwes from that zip file, but if you give it a folder containing multiple zip files, it will give you the sum across all of the zip files and will account for duplicates that would not be written to the destination etc.
+  - You can use the `-threads` option to make this go faster and in this case it wont matter if the zip files are on a bare metal hard drive or not, it will still run faster with more threads because nothing is being written to the drive. I recommend one thread for each zip file so if you have 10 zip files, then use `-threads 10`
 
 ### Examples
 
