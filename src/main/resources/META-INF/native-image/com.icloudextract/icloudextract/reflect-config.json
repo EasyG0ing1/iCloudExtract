@@ -1,0 +1,6 @@
+[
+  {
+    "name": "java.io.Console",
+    "methods": [{"name": "isTerminal", "parameterTypes": []}]
+  }
+]

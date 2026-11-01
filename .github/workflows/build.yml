@@ -1,0 +1,43 @@
+name: Build native executables
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64,   os: ubuntu-latest,   artifact: icloudextract }
+          - { name: macos-arm64, os: macos-latest,    artifact: icloudextract }
+          - { name: macos-x64,   os: macos-15-intel,  artifact: icloudextract }
+          - { name: windows-x64, os: windows-latest,  artifact: icloudextract.exe }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'maven'
+
+      - name: Test and build native image
+        run: mvn -B -Pnative package
+
+      - name: Smoke test
+        shell: bash
+        run: ./target/${{ matrix.artifact }} --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: icloudextract-${{ matrix.name }}
+          path: target/${{ matrix.artifact }}
+          if-no-files-found: error

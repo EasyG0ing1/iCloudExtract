@@ -1,0 +1,173 @@
+# iCloudExtract
+
+Extracts the multi-part zip files you get from Apple's *Data and Privacy* export
+(`iCloud Drive Part 1 of 18.zip`, `Part 2 of 18`, ...) without losing files.
+
+The built-in tools (`unzip`, `ditto`, Archive Utility) and several third-party ones either stop at the
+first problem or silently drop entries on these archives. iCloudExtract handles each entry on its own,
+logs every problem, and can verify that everything made it out.
+
+## What goes wrong with these archives
+
+* **A path that is both a file and a folder.** Apple's zips can hold (for example) `Untitled.numbers` as a real file
+  (itself a zip: iWork's single-file format) *and* entries such as `Untitled.numbers/preview.jpg`.
+  A filesystem cannot hold both under one name. The usual unzip tools don't handle these cases intelligently.
+* **macOS `unzip` stops on some perfectly valid names**, such as folders containing a curly apostrophe
+  (`Dan’s Pro Drive`), with `Illegal byte sequence`. It then skips those files and, after a
+  write error, can abandon the rest of the archive. (In the archives this was written against, every
+  name is valid UTF-8; the problem is `unzip`, not the names.)
+* **Two entries whose names collide** once extracted: the same name listed twice, or names that differ
+  only by letter case, which a macOS or Windows volume treats as one file.
+* **The zip stores no file attributes at all** (no modes, no directory flags). Folders are only implied
+  by the paths.
+
+## Best Use
+
+The best way to use this program is to get all of the partial zip files downloaded into a single folder where the zip
+files will have numeric sequencing (1 of 10, 2 of 10) in the zip file name. You don't need every zip file but its best
+to have them all.
+
+Then, from inside that folder, run 
+
+```bash
+icloudextract -consolidate -destination <path>
+```
+
+The other command line options are explained below
+
+Make sure the destination folder is a clean folder with nothing in it. However, if you are incrementally extracting zip files
+as they are downloaded you should run the program like this:
+
+```bash
+icloudextract -consolidate -source filename.zip -destination <path>
+```
+
+Supply the same destination folder, while providing just the new zip file and the program will simply merge those files into
+the common path. 
+
+## For each run
+
+Regardless of how you chose to extract your files, the program will always account for each file in the zip archives and will
+log any changes that it needed to make in order to get the files unzipped and it will tell you exactly which files were
+affected.
+
+This program was written after attempting to obtain my entire iCloud drive in zip files then having a nightmare of a time
+trying to get them all extracted as thoroughly as possible. Apples own built in tools would silently ignore files and they
+would not get extracted and even programs like BetterZip had similar behaviors. I did not find that to be acceptable, so 
+I wrote this utility.
+
+## Program Arguments
+
+```
+icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-consolidate]
+              [-overwrite [newest]] [-checkzip] [-threads <n>] [-yes]
+```
+
+| Option | Meaning |
+|---|---|
+| `-destination <folder>` | Where to extract (created if needed). <br>Default: a folder named `iCloudExtract` inside the current folder. |
+| `-source <folder\|zip>` | A folder OR a zip file. If specifying a folder, it will automatically grab the zip files in that folder. <BR> Default: Current folder. |
+| `-yes` | This tells the program to automaticall respond YES to the confirmation alerts if they are needed. |
+| `-verify` | After files have been unzipped, this verifies the **size** of the extracted file with the size recorded in the zip file. |
+| `-verify crc` | Same behavior as -verify except the files computed **CRC-32** value is used as confirmation - this is much more accurate but it takes more time to complete. |
+| `-consolidate` | Each Zip file contains a folder path that is common to all of the zip files. Without this option, each zip file would be unzipped into its own separate folder. With this option, the files are extracted into the folder that is common in all zip files. |
+| `-overwrite` | If a file is being moved or unzipped and a file already exists at that path, this option overwrites the destination file with the source file. |
+| `-overwrite newest` | Same as -overwrite, but it only overwrites the destination file when the source file is newer. |
+| `-checkzip` | This will run a validation check on the zip file before extracting it and if the check fails, the files will not be extracted from that zip file. |
+| `-threads <n>` | Unzip more than one zip file simultaneously. This is especially effective when you are unzipping to a solid state hard drive (see discussion below). |
+| `-help`, `-version` | View the programs help text or the version of the program. |
+
+Every option also works with two dashes (`--destination`).
+
+## About Program Arguments
+
+If you just run the program from a folder that has the zip files in it, the program will extract each zip file into its own separate folder. If you use any of the arguments, this behavior is worth noteng:
+
+`-source` 
+  - can be a single zip file or a path to a folder that has one or more of your downloaded zip files
+
+`-yes` 
+  - This option is meant for use in a script file so that nothing stops the program from running
+
+`-consolidate` 
+  - This option can do different things depending on the state of your overall file extraction:
+  - You can start extracting zip files individually as they are downloaded using the consolidate argument. You just need to make sure that the `-destination` path is the same each time you run the program for the different zip files. It will consolidate and resolve conflicts based on the default rules or based on the arguments you use that can affect how the program resolves conflicts (such as the `-overwrite` option).
+  - If you have multiple zip files already extracted into individual folders, then using `-consolidate` will look in the destination folder and it will resolve the path that is common to each individual folder and then it will simply create the common path and it will move the files from each folder into the common path, creating the consolidated folder. It follows all of the same rules for conflict resolution as it would if it were unzipping files.
+  - When files have already been written to disk at the time you run `iCloudExtract`, and a source file is the exact same file that is already in the destination, it will skip that file and NOT log it.
+
+`-overwrite` 
+  - when this option is NOT used, files having the same name and size will be compared by CRC value and when they are identical, no overwrite will be done. However, if there is a descrepency, then the program will take action and log what it did.
+  - Using this argument will change that behavior where it will always overwrite the destination file with the source file regardless of CRC checks. And by default it will extract each zip file in sequence so by default the next zip file containing a matching destination file will be overwritten with the file in that next sequential zip file.
+  - Using the `-threads` argument offers no way to predict which source file will overwrite an existing destination file because sequence is generally ignored when you use that argument.
+  - Using `-overwrite newest` will only overwrite the file when the source file is newer.
+
+`-threads`
+  - This option is incredibly useful when you are extracting files onto a solid state drive (nVme etc.), because it launches new threads for each zip file and extracts them simultaneously. And because solid state drives have no moving parts, this can make the overall extraction process incredibly fast.
+  - Using this option when the files are being extracted to a bare metal hard drive will most likely slow down the overall process. I dont recommend using this option when you are writing to a bare metal hard drive.
+  - Files are unzipped in sequence up to the number of threads you specify. For example, if you have 10 zip files but you use `-threads 5`, zip files 1 through 5 will be extracted immediately then as file extraction finishes, the next zip file in the sequence will be added to the thread pool.
+
+## How conflicts are resolved
+
+| Situation | What iCloudExtract does |
+|---|---|
+| A file entry has content and its path is also used as a folder | The file is extracted as a file. Everything inside that path goes to a folder with `-folder` added to the name, e.g. `Untitled.numbers` and `Untitled.numbers-folder/preview.jpg`. |
+| A **zero-byte** file entry is also used as a folder | Treated as a placeholder that should have been a folder. It is not written; the folder is used as is. |
+| A name contains bytes that are not valid UTF-8 | Those bytes are read as Windows-1252, the code page such names almost always come from, so `caf\xE9` becomes `café` (the five bytes Windows-1252 leaves undefined become `_`). |
+| Two **different** files in the archive get the same name on disk (the same name listed twice, or names that differ only by letter case on a case-insensitive volume) | Both are kept. The later one gets `-1` added to the part of its name before the extension (`song.gcode` and `Song.gcode` become `song.gcode` and `Song-1.gcode`); a name that already ends in `-<number>` has the number increased (`arrow-1.png` becomes `arrow-2.png`). If that name is also taken, the number keeps increasing until the name is free. Each rename is logged. |
+| A folder already on disk (from an earlier zip or run) where a later zip has a file, or the other way round | Same rule: the file keeps its name and the folder becomes `name-folder`. |
+| The file already exists and was **not** written by this run (an earlier zip extraction or an earlier run) and its size matches | Skipped silently, not logged and not read: name and size are trusted. |
+| The file already exists because **this run** wrote it from an earlier zip, and its CRC-32 is identical | Skipped, and logged with the zip it first came from. |
+| The file already exists (from an earlier zip or an earlier run), differs, and has exactly the same name | Skipped and logged, unless `-overwrite` is given. Same-size files count as identical (see above). |
+
+"Legitimate file" means size other than zero. This is a heuristic; if you have a case where it is wrong,
+please open an issue.
+
+### Examples
+
+```
+# Extract every zip in the current folder into ./iCloudExtract, one folder per zip
+icloudextract
+
+# Merge all parts into one tree and check every CRC afterwards
+icloudextract -source ~/Downloads/iCloudFiles -destination ~/Downloads/iCloudFiles/Extracted -consolidate -verify crc
+
+# Four zips at once, newest copy wins, test the zips first
+icloudextract -source ~/Downloads -destination ~/iCloudDrive -consolidate -overwrite newest -threads 4 -checkzip
+```
+
+## Logs
+
+Written to the folder you run the program from:
+
+* `iCloudExtract.log`: everything unusual, including every per-entry error.
+* `iCloudExtract-conflicts.log`: files skipped (different, or identical to a copy written earlier in the same run), overwritten, renamed, and folders
+  redirected to `-folder`.
+
+The exit code is `0` when everything succeeded, `1` when any entry failed or verification found a
+mismatch, and `2` for bad arguments.
+
+## Building
+
+Needs a JDK 21+ and Maven.
+
+```
+mvn package                 # runnable jar: java -jar target/icloudextract.jar ...
+mvn -Pnative package        # native executable: target/icloudextract  (needs GraalVM with native-image)
+```
+
+A GitHub Actions workflow (`.github/workflows/build.yml`) builds native executables for Linux, macOS
+(Intel and Apple Silicon) and Windows.
+
+## Notes and limits
+
+* Windows: characters Windows forbids in file names are written as `%HH`, and reserved names such as
+  `CON` get a leading `_`.
+* Whether two names "collide" is decided by the file system itself, so on a case-sensitive volume
+  (the Linux default) names that differ only by case simply stay separate files.
+* A file already on disk that this run did not write is considered identical when its name and size match;
+  no CRC-32 is computed, whether the file is being extracted over or moved up with `-consolidate` (an
+  identical source file in a zip-named folder is deleted silently; one of a different size follows `-overwrite`,
+  or `-N` renaming when the names differ only by case). The CRC-32 is only used on files this run wrote itself,
+  and by the `-verify crc` and `-checkzip` options you ask for. Reading a file for its CRC-32 is limited by the disk, not the CPU.
+* Entry timestamps are applied to the extracted files. File permissions are not (the zips carry none).
+* Encrypted entries and unsupported compression methods are reported as failures; the rest still extract.
