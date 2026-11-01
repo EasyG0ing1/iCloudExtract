@@ -75,7 +75,9 @@ class ZipSizerTest {
                                                  List<Path> zips) throws Exception {
         Path dest = work.resolve("out");
         boolean caseInsensitive = FileSystemProbe.isCaseInsensitive(dest);
-        SizeReport estimate = ZipSizer.measure(zips, consolidate, overwrite, caseInsensitive, line -> { });
+        SizeReport estimate = ZipSizer.measure(zips, consolidate, overwrite, caseInsensitive, 1, line -> { });
+        SizeReport parallel = ZipSizer.measure(zips, consolidate, overwrite, caseInsensitive, 4, line -> { });
+        assertEquals(estimate, parallel, "the number of threads must not change the result");
         assertFalse(Files.exists(dest), "-getTotal must not create the destination");
 
         try (RunLog log = new RunLog(work)) {
@@ -197,7 +199,7 @@ class ZipSizerTest {
         try (Stream<Path> s = Files.list(work)) {
             before = s.count();
         }
-        SizeReport r = ZipSizer.measure(List.of(z), true, OverwriteMode.NONE, true, line -> { });
+        SizeReport r = ZipSizer.measure(List.of(z), true, OverwriteMode.NONE, true, 1, line -> { });
         long after;
         try (Stream<Path> s = Files.list(work)) {
             after = s.count();
@@ -211,10 +213,57 @@ class ZipSizerTest {
     void anUnreadableZipIsReportedAndTheRestStillCounted(@TempDir Path work) throws Exception {
         Path good = zip(work.resolve("Part 1.zip"), entries("Part 1/Drive/a.txt", "abc"), 1_700_000_000_000L);
         Path bad = Files.writeString(work.resolve("Part 2.zip"), "this is not a zip file");
-        SizeReport r = ZipSizer.measure(List.of(good, bad), true, OverwriteMode.NONE, true, line -> { });
-        assertEquals(3, r.extractedBytes());
-        assertEquals(1, r.zipsRead());
-        assertEquals(1, r.unreadableZips().size());
-        assertTrue(r.unreadableZips().getFirst().startsWith("Part 2.zip"));
+        for (int threads : new int[] {1, 2}) {
+            SizeReport r = ZipSizer.measure(List.of(good, bad), true, OverwriteMode.NONE, true, threads, line -> { });
+            assertEquals(3, r.extractedBytes());
+            assertEquals(1, r.zipsRead());
+            assertEquals(1, r.unreadableZips().size());
+            assertTrue(r.unreadableZips().getFirst().startsWith("Part 2.zip"));
+        }
+    }
+
+    @Test
+    void zipsReadAtTheSameTimeAreStillCountedInExtractionOrder(@TempDir Path work) throws Exception {
+        // Part 1 is the biggest, so the small later zips are likely to finish reading first. With overwrite off the
+        // first copy of shared.txt (from Part 1) must win no matter which thread finishes first.
+        Map<String, byte[]> big = new LinkedHashMap<>();
+        for (int i = 0; i < 3000; i++) {
+            big.put("Part 1/Drive/file" + i + ".txt", ("content of file " + i).getBytes(StandardCharsets.UTF_8));
+        }
+        big.put("Part 1/Drive/shared.txt", "the first and biggest version of the shared file".getBytes(StandardCharsets.UTF_8));
+        List<Path> zips = new java.util.ArrayList<>();
+        zips.add(zip(work.resolve("Part 1.zip"), big, 1_600_000_000_000L));
+        for (int n = 2; n <= 9; n++) {
+            zips.add(zip(work.resolve("Part " + n + ".zip"),
+                    entries("Part " + n + "/Drive/shared.txt", "v" + n, "Part " + n + "/Drive/own" + n + ".txt", "x".repeat(n)),
+                    1_700_000_000_000L + n * 1000L));
+        }
+        for (OverwriteMode mode : OverwriteMode.values()) {
+            SizeReport one = ZipSizer.measure(zips, true, mode, true, 1, line -> { });
+            for (int round = 0; round < 5; round++) {
+                SizeReport many = ZipSizer.measure(zips, true, mode, true, 8, line -> { });
+                assertEquals(one, many, "overwrite " + mode + ", round " + round);
+            }
+        }
+        SizeReport none = ZipSizer.measure(zips, true, OverwriteMode.NONE, true, 8, line -> { });
+        long ownFiles = 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9;
+        long bigBytes = big.values().stream().mapToLong(b -> b.length).sum();
+        assertEquals(bigBytes + ownFiles, none.extractedBytes());
+        assertEquals(8, none.conflictsSkipped());
+    }
+
+    @Test
+    void progressIsReportedOncePerZip(@TempDir Path work) throws Exception {
+        List<Path> zips = List.of(
+                zip(work.resolve("Part 1.zip"), entries("Part 1/Drive/a.txt", "a"), 1_700_000_000_000L),
+                zip(work.resolve("Part 2.zip"), entries("Part 2/Drive/b.txt", "b"), 1_700_000_000_000L),
+                zip(work.resolve("Part 3.zip"), entries("Part 3/Drive/c.txt", "c"), 1_700_000_000_000L));
+        List<String> lines = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        ZipSizer.measure(zips, true, OverwriteMode.NONE, true, 3, lines::add);
+        assertEquals(3, lines.size());
+        for (int n = 1; n <= 3; n++) {
+            final int zipNumber = n;
+            assertTrue(lines.stream().anyMatch(l -> l.contains("Part " + zipNumber + ".zip")), lines.toString());
+        }
     }
 }

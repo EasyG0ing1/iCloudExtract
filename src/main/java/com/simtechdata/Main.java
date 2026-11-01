@@ -97,7 +97,8 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
     private boolean yes;
 
     @Option(names = {"-threads", "--threads"}, defaultValue = "1", paramLabel = "<n>",
-            description = "How many zip files to extract at the same time. Default: ${DEFAULT-VALUE}.")
+            description = {"How many zip files to extract at the same time. Default: ${DEFAULT-VALUE}.",
+                    "With -getTotal: how many zip files to read at the same time."})
     private int threads;
 
     @Option(names = {"-getTotal", "--getTotal"},
@@ -105,7 +106,8 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                     "Only the zips' tables of contents are read. Entries that would never be written are left out:",
                     "identical copies of a file already extracted from an earlier zip, files that lose to a different",
                     "file at the same path, and files replaced by a later version, following -consolidate and",
-                    "-overwrite. Assumes an empty destination and the zips extracted one after the other."})
+                    "-overwrite. Assumes an empty destination and the zips extracted one after the other.",
+                    "With -threads, that many zips are read at the same time; the total is the same for any number."})
     private boolean getTotal;
 
     @Option(names = {"-help", "--help"}, usageHelp = true, description = "Show this help and exit.")
@@ -187,7 +189,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         System.out.println("Source: " + sourcePath + " (" + zips.size() + " zip file(s))");
         System.out.println("Nothing is extracted or written. Reading the zips' tables of contents...");
         SizeReport r = ZipSizer.measure(zips, settings.consolidate(), settings.overwrite(), caseInsensitive,
-                System.out::println);
+                settings.threads(), System.out::println);
 
         System.out.println();
         System.out.println("Total size to extract: " + FileSizes.format(r.extractedBytes())
@@ -217,6 +219,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         }
         System.out.println("Settings used            : " + (settings.consolidate() ? "-consolidate" : "no -consolidate")
                 + ", overwrite " + settings.overwrite().name().toLowerCase(Locale.ROOT)
+                + ", " + settings.threads() + " thread(s)"
                 + ", names " + (caseInsensitive ? "case-insensitive" : "case-sensitive")
                 + " (file system of " + settings.destination() + ")");
 
