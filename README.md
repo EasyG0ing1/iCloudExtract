@@ -143,16 +143,19 @@ icloudextract -source ~/Downloads/iCloudFiles -destination ~/Downloads/iCloudFil
 icloudextract -source ~/Downloads -destination ~/iCloudDrive -consolidate -overwrite newest -threads 4 -checkzip
 ```
 
-## Logs
-
-Written to the folder you run the program from:
-
-* `iCloudExtract.log`: everything unusual, including every per-entry error.
-* `iCloudExtract-conflicts.log`: files skipped (different, or identical to a copy written earlier in the same run), overwritten, renamed, and folders
-  redirected to `-folder`.
-
 The exit code is `0` when everything succeeded, `1` when any entry failed or verification found a
 mismatch, and `2` for bad arguments.
+
+
+## Status Update
+
+While files are being extracted, a status line stays at the bottom of the terminal showing a spinner, the elapsed time as `HH:MM:SS`, an estimate of the time remaining such as `est. 00:31:05 left` (based on the speed of the last minute, and shown as `--:--:--` until the program has finished adding up the size of all the zip files in the background), how many zip files are finished out of the total such as `(6/18)`, and the names of the zip files that are being unzipped right now. Above that line the program prints a line as each zip file starts and another with its summary when it finishes, and when the output is redirected to a file only those lines are written and the status line is left out.
+
+## Log File
+
+Written to the folder you run the program from. The file name will follow this format `iCloudExtract-yyyy-MM-dd_HH-mm-ss.csv`. It is a comma separated file
+which means you can open it in any spread sheet or any other program that can view and format csv files. Opening it in a spreadsheet (like Excel,
+Numbers or Google Sheets) will let you quickly be able to sort the data by column or change the size of the columns etc making it eeasy to read and understand. 
 
 ## Building
 
