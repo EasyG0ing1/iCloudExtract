@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.files;
 
 import java.io.BufferedWriter;
 import java.io.Closeable;
@@ -18,10 +18,10 @@ import java.time.format.DateTimeFormatter;
  *       Created on first use.</li>
  * </ul>
  */
-final class RunLog implements Closeable {
+public final class RunLog implements Closeable {
 
-    static final String RUN_LOG_NAME = "iCloudExtract.log";
-    static final String CONFLICT_LOG_NAME = "iCloudExtract-conflicts.log";
+    public static final String RUN_LOG_NAME = "iCloudExtract.log";
+    public static final String CONFLICT_LOG_NAME = "iCloudExtract-conflicts.log";
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -30,33 +30,33 @@ final class RunLog implements Closeable {
     private BufferedWriter run;
     private BufferedWriter conflicts;
 
-    RunLog(Path directory) {
+    public RunLog(Path directory) {
         this.runLogFile = directory.resolve(RUN_LOG_NAME);
         this.conflictLogFile = directory.resolve(CONFLICT_LOG_NAME);
     }
 
-    Path runLogFile() {
+    public Path runLogFile() {
         return runLogFile;
     }
 
-    Path conflictLogFile() {
+    public Path conflictLogFile() {
         return conflictLogFile;
     }
 
-    synchronized void info(String message) {
+    public synchronized void info(String message) {
         write(false, "INFO ", message);
     }
 
-    synchronized void warn(String message) {
+    public synchronized void warn(String message) {
         write(false, "WARN ", message);
     }
 
-    synchronized void error(String message) {
+    public synchronized void error(String message) {
         write(false, "ERROR", message);
     }
 
     /** Recorded in both logs so the run log stays a complete account. */
-    synchronized void conflict(String message) {
+    public synchronized void conflict(String message) {
         write(true, "CONFLICT", message);
         write(false, "CONFLICT", message);
     }

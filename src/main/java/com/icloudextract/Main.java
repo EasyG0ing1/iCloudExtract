@@ -1,5 +1,14 @@
 package com.icloudextract;
 
+import com.icloudextract.files.FolderMerger;
+import com.icloudextract.files.OverwriteMode;
+import com.icloudextract.files.RunLog;
+import com.icloudextract.zip.Progress;
+import com.icloudextract.zip.Settings;
+import com.icloudextract.zip.ZipExtractor;
+import com.icloudextract.zip.ZipReport;
+import com.icloudextract.zip.ZipSourceResolver;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -243,11 +252,11 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                         "-verify accepts no value (size check) or 'crc', not '" + verify + "'");
             }
         }
-        Settings.OverwriteMode overwriteMode = Settings.OverwriteMode.NONE;
+        OverwriteMode overwriteMode = OverwriteMode.NONE;
         if (overwrite != null) {
             switch (overwrite.toLowerCase(Locale.ROOT)) {
-                case "always" -> overwriteMode = Settings.OverwriteMode.ALWAYS;
-                case "newest" -> overwriteMode = Settings.OverwriteMode.NEWEST;
+                case "always" -> overwriteMode = OverwriteMode.ALWAYS;
+                case "newest" -> overwriteMode = OverwriteMode.NEWEST;
                 default -> throw new IllegalArgumentException(
                         "-overwrite accepts no value or 'newest', not '" + overwrite + "'");
             }
@@ -274,7 +283,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
             log.warn(warning);
         }
 
-        if (settings.threads() > 1 && settings.overwrite() == Settings.OverwriteMode.ALWAYS) {
+        if (settings.threads() > 1 && settings.overwrite() == OverwriteMode.ALWAYS) {
             String notice = "NOTICE: " + settings.threads() + " zip files will be extracted at the same time and "
                     + "-overwrite is on. If the same file path appears in more than one zip, there is no guarantee "
                     + "which version will end up written. Use '-overwrite newest', or -threads 1, for a predictable "

@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,7 +27,7 @@ class FolderMergerTest {
             Files.createDirectories(dest.resolveSibling("logs-" + dest.getFileName()));
             var stats = new FolderMerger.Stats();
             for (String name : new String[] {"Part 1", "Part 2"}) {
-                new FolderMerger(dest, log, name, Settings.OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
+                new FolderMerger(dest, log, name, OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
             }
             assertEquals(0, stats.conflictsLeft);
         }
@@ -50,7 +50,7 @@ class FolderMergerTest {
         try (RunLog log = new RunLog(logs)) {
             var stats = new FolderMerger.Stats();
             for (String name : new String[] {"Part 1", "Part 2"}) {
-                new FolderMerger(dest, log, name, Settings.OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
+                new FolderMerger(dest, log, name, OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
             }
             assertEquals(1, stats.duplicatesRemoved);
             assertEquals(1, stats.conflictsLeft);
@@ -63,7 +63,7 @@ class FolderMergerTest {
         assertFalse(Files.readString(logs.resolve(RunLog.CONFLICT_LOG_NAME)).contains("identical"));
     }
 
-    private static FolderMerger.Stats mergePart2(Path dest, Settings.OverwriteMode mode) throws Exception {
+    private static FolderMerger.Stats mergePart2(Path dest, OverwriteMode mode) throws Exception {
         Path logs = Files.createDirectories(dest.resolveSibling("logs4-" + dest.getFileName()));
         var stats = new FolderMerger.Stats();
         try (RunLog log = new RunLog(logs)) {
@@ -81,12 +81,12 @@ class FolderMergerTest {
         Files.setLastModifiedTime(dest.resolve("Part 2/Drive/f.txt"),
                 java.nio.file.attribute.FileTime.fromMillis(1_600_000_000_000L));
 
-        var newest = mergePart2(dest, Settings.OverwriteMode.NEWEST);
+        var newest = mergePart2(dest, OverwriteMode.NEWEST);
         assertEquals(0, newest.overwritten);
         assertEquals(1, newest.conflictsLeft);
         assertEquals("existing", Files.readString(dest.resolve("Drive/f.txt")));
 
-        var always = mergePart2(dest, Settings.OverwriteMode.ALWAYS);
+        var always = mergePart2(dest, OverwriteMode.ALWAYS);
         assertEquals(1, always.overwritten);
         assertEquals("older source", Files.readString(dest.resolve("Drive/f.txt")));
         assertFalse(Files.exists(dest.resolve("Part 2")));
@@ -101,7 +101,7 @@ class FolderMergerTest {
         try (RunLog log = new RunLog(logs)) {
             var stats = new FolderMerger.Stats();
             for (String name : new String[] {"Part 1", "Part 2"}) {
-                new FolderMerger(dest, log, name, Settings.OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
+                new FolderMerger(dest, log, name, OverwriteMode.NONE).mergeContents(dest.resolve(name), dest, stats);
             }
             assertEquals(1, stats.redirectedToFolderSuffix);
         }

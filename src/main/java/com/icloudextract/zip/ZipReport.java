@@ -1,40 +1,40 @@
-package com.icloudextract;
+package com.icloudextract.zip;
 
 /** Counters for one zip file. Each zip is processed by a single thread, so plain fields are fine. */
-final class ZipReport {
+public final class ZipReport {
 
-    final String name;
+    public final String name;
 
-    int entries;
-    int directories;
-    int extracted;
-    int overwritten;
-    int skippedIdentical;
-    int skippedConflict;
-    int placeholders;
-    int folderRedirects;
-    int renamed;
-    int failed;
+    public int entries;
+    public int directories;
+    public int extracted;
+    public int overwritten;
+    public int skippedIdentical;
+    public int skippedConflict;
+    public int placeholders;
+    public int folderRedirects;
+    public int renamed;
+    public int failed;
 
-    int verified;
-    int verifyFailed;
-    int verifyUnchecked;
+    public int verified;
+    public int verifyFailed;
+    public int verifyUnchecked;
 
-    boolean integrityFailed;
-    String fatal;
+    public boolean integrityFailed;
+    public String fatal;
 
     /** How many errors have been echoed to the console for this zip (the log gets all of them). */
-    int errorsPrinted;
+    public int errorsPrinted;
 
-    ZipReport(String name) {
+    public ZipReport(String name) {
         this.name = name;
     }
 
-    boolean ok() {
+    public boolean ok() {
         return fatal == null && !integrityFailed && failed == 0 && verifyFailed == 0;
     }
 
-    String summary(boolean verifying) {
+    public String summary(boolean verifying) {
         StringBuilder sb = new StringBuilder();
         sb.append(name).append(": ");
         if (fatal != null) {

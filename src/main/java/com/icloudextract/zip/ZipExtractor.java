@@ -1,18 +1,23 @@
-package com.icloudextract;
+package com.icloudextract.zip;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
+import com.icloudextract.files.Checksums;
+import com.icloudextract.files.ConflictPlanner;
+import com.icloudextract.files.FileNames;
+import com.icloudextract.files.FolderMerger;
+import com.icloudextract.files.OverwriteMode;
+import com.icloudextract.files.RunLog;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.Normalizer;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
-import java.text.Normalizer;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -32,7 +37,7 @@ import org.apache.commons.compress.archivers.zip.ZipFile;
  *
  * <p>One instance is shared by all worker threads; each zip is handled by exactly one thread.
  */
-final class ZipExtractor {
+public final class ZipExtractor {
 
     private static final int MAX_CONSOLE_ERRORS_PER_ZIP = 20;
     private static final int LOCK_STRIPES = 256;
@@ -57,11 +62,11 @@ final class ZipExtractor {
     /** Files written by this run (key: see {@link #key}) mapped to the zip they came from. */
     private final Map<String, String> writtenThisRun = new ConcurrentHashMap<>();
 
-    ZipExtractor(Settings settings, RunLog log) {
+    public ZipExtractor(Settings settings, RunLog log) {
         this(settings, log, Progress.NONE);
     }
 
-    ZipExtractor(Settings settings, RunLog log, Progress progress) {
+    public ZipExtractor(Settings settings, RunLog log, Progress progress) {
         this.settings = settings;
         this.log = log;
         this.progress = progress;
@@ -71,7 +76,7 @@ final class ZipExtractor {
         }
     }
 
-    ZipReport extract(Path zip) {
+    public ZipReport extract(Path zip) {
         String zipName = zip.getFileName().toString();
         ZipReport report = new ZipReport(zipName);
         String mirror = zipName.toLowerCase(Locale.ROOT).endsWith(".zip")
@@ -230,7 +235,7 @@ final class ZipExtractor {
     private Path resolveFolder(List<String> segments, String zipName) throws IOException {
         Path current = root;
         for (String raw : segments) {
-            String seg = EntryNames.sanitize(raw);
+            String seg = FileNames.sanitize(raw);
             Path p = current.resolve(seg);
             if (Files.isDirectory(p, NOFOLLOW_LINKS)) {
                 current = p;
@@ -262,7 +267,7 @@ final class ZipExtractor {
                                Set<Path> handledByThisZip) throws IOException {
         ZipArchiveEntry e = c.entry();
         Path parent = resolveFolder(mapped.subList(0, mapped.size() - 1), zipName);
-        Path target = parent.resolve(EntryNames.sanitize(mapped.get(mapped.size() - 1)));
+        Path target = parent.resolve(FileNames.sanitize(mapped.get(mapped.size() - 1)));
         if (!target.normalize().startsWith(root)) {
             throw new IOException("path escapes the destination folder");
         }
@@ -369,7 +374,7 @@ final class ZipExtractor {
     private Renamed freeName(Path target, ZipArchiveEntry e) throws IOException {
         Path candidate = target;
         while (true) {
-            candidate = candidate.resolveSibling(EntryNames.nextCollisionName(candidate.getFileName().toString()));
+            candidate = candidate.resolveSibling(FileNames.nextCollisionName(candidate.getFileName().toString()));
             if (!Files.exists(candidate, NOFOLLOW_LINKS)) {
                 return new Renamed(candidate, false);
             }
@@ -397,23 +402,6 @@ final class ZipExtractor {
         return Normalizer.normalize(p.toString(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
-    /**
-     * True when {@code target} exists only because the file system ignores letter case (or Unicode
-     * normalization): no entry in the folder has exactly this name.
-     */
-    static boolean isCaseVariant(Path target) throws IOException {
-        String wanted = Normalizer.normalize(target.getFileName().toString(), Normalizer.Form.NFC);
-        try (DirectoryStream<Path> names = Files.newDirectoryStream(target.getParent())) {
-            for (Path existing : names) {
-                String name = Normalizer.normalize(existing.getFileName().toString(), Normalizer.Form.NFC);
-                if (name.equals(wanted)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     private Decision decide(Path target, ZipArchiveEntry e, Set<Path> handledByThisZip) throws IOException {
         if (!Files.exists(target, NOFOLLOW_LINKS)) {
             return Decision.NEW;
@@ -424,7 +412,7 @@ final class ZipExtractor {
         if (isIdentical(target, e)) {
             return Decision.SKIP_IDENTICAL;
         }
-        if (handledByThisZip.contains(target) || isCaseVariant(target)) {
+        if (handledByThisZip.contains(target) || FileNames.isCaseVariant(target)) {
             return Decision.RENAME;
         }
         return switch (settings.overwrite()) {
@@ -450,7 +438,7 @@ final class ZipExtractor {
             return new Result(c.name(), target, size, crc, Outcome.SKIPPED_IDENTICAL);
         }
         report.skippedConflict++;
-        String why = settings.overwrite() == Settings.OverwriteMode.NONE
+        String why = settings.overwrite() == OverwriteMode.NONE
                 ? "a different file already exists (use -overwrite to replace it)"
                 : "the existing file is the same age or newer";
         log.conflict(zipName + " :: skipped, " + why + ": " + relative);

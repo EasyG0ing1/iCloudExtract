@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.zip;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,7 +18,7 @@ import java.util.stream.Stream;
  * file in it is used, ordered by the number in its name (for example {@code Part 1 of 18} through
  * {@code Part 18 of 18}). Gaps in the numbering are reported as warnings, never as errors.
  */
-final class ZipSourceResolver {
+public final class ZipSourceResolver {
 
     private static final Pattern DIGITS = Pattern.compile("\\d+");
     private static final Pattern OF_TOTAL = Pattern.compile("(?i)\\bof\\s+(\\d+)");
@@ -27,16 +27,16 @@ final class ZipSourceResolver {
     }
 
     /** A usage problem the user can fix (bad path, broken sequence). */
-    static final class SourceException extends Exception {
+    public static final class SourceException extends Exception {
         SourceException(String message) {
             super(message);
         }
     }
 
-    record Resolved(List<Path> zips, List<String> warnings) {
+    public record Resolved(List<Path> zips, List<String> warnings) {
     }
 
-    static Resolved resolve(Path source) throws SourceException, IOException {
+    public static Resolved resolve(Path source) throws SourceException, IOException {
         if (!Files.exists(source)) {
             throw new SourceException("Source does not exist: " + source);
         }
@@ -68,7 +68,7 @@ final class ZipSourceResolver {
      * Orders the zips by their sequence number. Gaps and unnumbered names are not errors: every zip is
      * kept, and anything notable is reported as a warning so the caller can show it to the user.
      */
-    static Resolved sequence(List<Path> zips) {
+    public static Resolved sequence(List<Path> zips) {
         List<String> warnings = new ArrayList<>();
         List<Path> numbered = new ArrayList<>();
         List<long[]> numbers = new ArrayList<>();

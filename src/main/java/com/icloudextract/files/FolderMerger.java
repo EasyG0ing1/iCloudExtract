@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.files;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
@@ -15,34 +15,34 @@ import java.util.stream.Stream;
  * destination already has it); one of a different size is renamed {@code -N} if the file system merely treats the
  * names as the same, otherwise the {@code -overwrite} setting decides (by default it is left in place).
  */
-final class FolderMerger {
+public final class FolderMerger {
 
     /** What a merge did. */
-    static final class Stats {
-        int moved;
-        int duplicatesRemoved;
-        int overwritten;
-        int renamed;
-        int conflictsLeft;
-        int redirectedToFolderSuffix;
+    public static final class Stats {
+        public int moved;
+        public int duplicatesRemoved;
+        public int overwritten;
+        public int renamed;
+        public int conflictsLeft;
+        public int redirectedToFolderSuffix;
     }
 
     private final Path root;
     private final RunLog log;
     private final String label;
-    private final Settings.OverwriteMode overwrite;
+    private final OverwriteMode overwrite;
     private final boolean useCrc;
 
     /**
      * @param root  the destination root, used only to print shorter paths in the log
      * @param label what to put in front of log lines (a zip or folder name)
      */
-    FolderMerger(Path root, RunLog log, String label, Settings.OverwriteMode overwrite) {
+    public FolderMerger(Path root, RunLog log, String label, OverwriteMode overwrite) {
         this(root, log, label, overwrite, false);
     }
 
     /** @param useCrc also compare CRC-32 when deciding that two files with the same name and size are identical */
-    FolderMerger(Path root, RunLog log, String label, Settings.OverwriteMode overwrite, boolean useCrc) {
+    public FolderMerger(Path root, RunLog log, String label, OverwriteMode overwrite, boolean useCrc) {
         this.useCrc = useCrc;
         this.root = root;
         this.log = log;
@@ -51,7 +51,7 @@ final class FolderMerger {
     }
 
     /** Moves every child of {@code source} into {@code destination}; removes {@code source} if left empty. */
-    void mergeContents(Path source, Path destination, Stats stats) throws IOException {
+    public void mergeContents(Path source, Path destination, Stats stats) throws IOException {
         List<Path> children;
         try (Stream<Path> listing = Files.list(source)) {
             children = listing.sorted().toList();
@@ -67,7 +67,7 @@ final class FolderMerger {
     }
 
     /** Moves one file or folder to {@code target}, which may already exist. */
-    void mergeItem(Path item, Path target, Stats stats) throws IOException {
+    public void mergeItem(Path item, Path target, Stats stats) throws IOException {
         boolean itemIsDir = Files.isDirectory(item, NOFOLLOW_LINKS);
         if (!Files.exists(target, NOFOLLOW_LINKS)) {
             Files.createDirectories(target.getParent());
@@ -84,9 +84,9 @@ final class FolderMerger {
                 // Already there and identical: drop the source copy without a log line.
                 Files.delete(item);
                 stats.duplicatesRemoved++;
-            } else if (ZipExtractor.isCaseVariant(target)) {
+            } else if (FileNames.isCaseVariant(target)) {
                 moveToFreeName(item, target, stats);
-            } else if (overwrite == Settings.OverwriteMode.ALWAYS || (overwrite == Settings.OverwriteMode.NEWEST
+            } else if (overwrite == OverwriteMode.ALWAYS || (overwrite == OverwriteMode.NEWEST
                     && Files.getLastModifiedTime(item).toMillis() > Files.getLastModifiedTime(target).toMillis())) {
                 Files.move(item, target, StandardCopyOption.REPLACE_EXISTING);
                 stats.overwritten++;
@@ -118,7 +118,7 @@ final class FolderMerger {
     private void moveToFreeName(Path item, Path target, Stats stats) throws IOException {
         Path candidate = target;
         while (true) {
-            candidate = candidate.resolveSibling(EntryNames.nextCollisionName(candidate.getFileName().toString()));
+            candidate = candidate.resolveSibling(FileNames.nextCollisionName(candidate.getFileName().toString()));
             if (!Files.exists(candidate, NOFOLLOW_LINKS)) {
                 Files.move(item, candidate);
                 stats.renamed++;

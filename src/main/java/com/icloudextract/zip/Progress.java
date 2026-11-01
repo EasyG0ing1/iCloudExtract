@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.zip;
 
 import java.time.Duration;
 import java.util.LinkedHashSet;
@@ -9,10 +9,10 @@ import java.util.Set;
  * line {@code / - \ |} with the running time as HH:MM:SS and the current activity. Without a terminal there
  * is no spinner, only the permanent lines.
  */
-final class Progress implements AutoCloseable {
+public final class Progress implements AutoCloseable {
 
     /** Prints plain lines only; used where no progress display is wanted. */
-    static final Progress NONE = new Progress(false);
+    public static final Progress NONE = new Progress(false);
 
     private static final char[] SPINNER = {'/', '-', '\\', '|'};
 
@@ -24,12 +24,12 @@ final class Progress implements AutoCloseable {
     private Thread thread;
     private volatile boolean running;
 
-    Progress(boolean animate) {
+    public Progress(boolean animate) {
         this.animate = animate;
     }
 
     /** True when standard output is an interactive terminal. */
-    static boolean onTerminal() {
+    public static boolean onTerminal() {
         if (System.console() == null) {
             return false;
         }
@@ -41,15 +41,15 @@ final class Progress implements AutoCloseable {
         }
     }
 
-    static String clock(long seconds) {
+    public static String clock(long seconds) {
         return String.format("%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60);
     }
 
-    String elapsed() {
+    public String elapsed() {
         return clock(Duration.ofNanos(System.nanoTime() - startNanos).toSeconds());
     }
 
-    synchronized void start() {
+    public synchronized void start() {
         if (!animate || running) {
             return;
         }
@@ -70,29 +70,29 @@ final class Progress implements AutoCloseable {
     }
 
     /** Sets what the spinner line says is going on, e.g. while files are being moved. */
-    synchronized void activity(String text) {
+    public synchronized void activity(String text) {
         activity = text;
     }
 
     /** A zip file is being unzipped; the spinner line lists every zip in progress. */
-    synchronized void begin(String zip) {
+    public synchronized void begin(String zip) {
         active.add(zip);
         activity = "Unzipping " + String.join(", ", active);
     }
 
-    synchronized void end(String zip) {
+    public synchronized void end(String zip) {
         active.remove(zip);
         activity = active.isEmpty() ? "" : "Unzipping " + String.join(", ", active);
     }
 
     /** A permanent line on standard output. */
-    synchronized void line(String text) {
+    public synchronized void line(String text) {
         clearSpinner();
         System.out.println(text);
     }
 
     /** A permanent line on standard error. */
-    synchronized void error(String text) {
+    public synchronized void error(String text) {
         clearSpinner();
         System.err.println(text);
     }

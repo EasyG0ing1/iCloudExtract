@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.files;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,18 +22,18 @@ import java.util.Set;
  *       should have been a folder. It is not written, and its children use the plain folder name.</li>
  * </ul>
  */
-final class ConflictPlanner {
+public final class ConflictPlanner {
 
-    static final String FOLDER_SUFFIX = "-folder";
+    public static final String FOLDER_SUFFIX = "-folder";
 
     private ConflictPlanner() {
     }
 
     /** One zip entry, reduced to what the planner needs. */
-    record Item(List<String> segments, boolean directory, long size) {
+    public record Item(List<String> segments, boolean directory, long size) {
     }
 
-    enum Kind {
+    public enum Kind {
         /** Extract normally to the mapped path. */
         NORMAL,
         /** Zero-byte file that should have been a folder: do not write it. */
@@ -41,10 +41,10 @@ final class ConflictPlanner {
     }
 
     /** Planning result; {@code targets} and {@code kinds} are parallel to the input items. */
-    record Plan(List<List<String>> targets, List<Kind> kinds, Set<String> legitimateFiles, Set<String> placeholders) {
+    public record Plan(List<List<String>> targets, List<Kind> kinds, Set<String> legitimateFiles, Set<String> placeholders) {
     }
 
-    static Plan plan(List<Item> items) {
+    public static Plan plan(List<Item> items) {
         // Every path that is used as a folder: ancestors of any entry, plus explicit directory entries.
         Set<String> folders = new HashSet<>();
         for (Item item : items) {

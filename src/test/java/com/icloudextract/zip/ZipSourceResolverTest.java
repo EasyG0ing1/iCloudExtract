@@ -1,4 +1,4 @@
-package com.icloudextract;
+package com.icloudextract.zip;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
