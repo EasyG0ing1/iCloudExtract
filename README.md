@@ -69,7 +69,7 @@ icloudextract [-destination <folder>] [-source <folder|zip>] [-verify [crc]] [-c
 | `-source <folder\|zip>` | A folder OR a zip file. If specifying a folder, it will automatically grab the zip files in that folder. <BR> Default: Current folder. |
 | `-yes` | This tells the program to automaticall respond YES to the confirmation alerts if they are needed. |
 | `-verify` | After files have been unzipped, this verifies the **size** of the extracted file with the size recorded in the zip file. |
-| `-verify crc` | Same behavior as -verify except the files computed **CRC-32** value is used as confirmation - this is much more accurate but it takes more time to complete. |
+| `-verify crc` | Same behavior as -verify except the files computed **CRC-32** value is used as confirmation - this is much more accurate but it takes more time to complete. It also changes how files that are already on disk are matched: instead of name and size alone, their CRC-32 is compared too (each existing file has to be read). |
 | `-consolidate` | Each Zip file contains a folder path that is common to all of the zip files. Without this option, each zip file would be unzipped into its own separate folder. With this option, the files are extracted into the folder that is common in all zip files. |
 | `-overwrite` | If a file is being moved or unzipped and a file already exists at that path, this option overwrites the destination file with the source file. |
 | `-overwrite newest` | Same as -overwrite, but it only overwrites the destination file when the source file is newer. |
@@ -122,6 +122,14 @@ If you just run the program from a folder that has the zip files in it, the prog
 "Legitimate file" means size other than zero. This is a heuristic; if you have a case where it is wrong,
 please open an issue.
 
+### Progress display
+
+While it runs, the program prints a line for each step: `Unzipping file <name>.zip` (with `into <destination>` when
+`-consolidate` is on), and `Moving files for consolidation: ...` while zip-named folders are being moved up. On
+a terminal, a spinning line (`/ - \ |`) sits below them with the running time as `HH:MM:SS` and what is being done
+right now; it carries on as each next zip starts. When everything is done it prints a summary, the elapsed time and
+where the log files are. If the output is redirected to a file, only the plain lines are printed (no spinner).
+
 ### Examples
 
 ```
@@ -169,5 +177,6 @@ A GitHub Actions workflow (`.github/workflows/build.yml`) builds native executab
   identical source file in a zip-named folder is deleted silently; one of a different size follows `-overwrite`,
   or `-N` renaming when the names differ only by case). The CRC-32 is only used on files this run wrote itself,
   and by the `-verify crc` and `-checkzip` options you ask for. Reading a file for its CRC-32 is limited by the disk, not the CPU.
+  With `-verify crc`, the match test for files already on disk is extended to include the CRC-32 as well.
 * Entry timestamps are applied to the extracted files. File permissions are not (the zips carry none).
 * Encrypted entries and unsupported compression methods are reported as failures; the rest still extract.
