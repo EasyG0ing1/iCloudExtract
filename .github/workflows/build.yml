@@ -1,15 +1,47 @@
 name: Build native executables
 
+# Runs only on a push to main. Use compile/publish.sh, which bumps the version first.
+# If every build succeeds, a release is created whose tag is the version number from pom.xml
+# (for example 1.0.5), with one zip per platform attached:
+#   icloudextract-1.0.5-linux-x64.zip, icloudextract-1.0.5-macos-arm64.zip,
+#   icloudextract-1.0.5-macos-x64.zip, icloudextract-1.0.5-windows-x64.zip
 on:
   push:
     branches: [main]
-    tags: ['v*']
-  pull_request:
-  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
+  check-version:
+    name: check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from pom.xml
+        id: read
+        run: |
+          VERSION=$(grep -m1 -o '<version>[^<]*</version>' pom.xml | sed -e 's/<version>//' -e 's/<\/version>//')
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::pom.xml version '$VERSION' is not MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Stop early if this version is already released
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.read.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Version ${{ steps.read.outputs.version }} already has a release. Run compile/publish.sh so the version is bumped before pushing."
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: check-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -32,12 +64,53 @@ jobs:
       - name: Test and build native image
         run: mvn -B -Pnative package
 
-      - name: Smoke test
+      - name: Smoke test (the binary must report the pom version)
         shell: bash
-        run: ./target/${{ matrix.artifact }} --version
+        run: |
+          OUT=$(./target/${{ matrix.artifact }} --version)
+          echo "$OUT"
+          echo "$OUT" | grep -F "${{ needs.check-version.outputs.version }}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: simtechdata-${{ matrix.name }}
+          name: icloudextract-${{ matrix.name }}
           path: target/${{ matrix.artifact }}
           if-no-files-found: error
+
+  release:
+    name: release
+    # needs: build means this job only starts when every platform build succeeded.
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: icloudextract-*
+          path: artifacts
+
+      - name: Zip each native image
+        run: |
+          set -euo pipefail
+          mkdir dist
+          for platform in linux-x64 macos-arm64 macos-x64 windows-x64; do
+            exe=icloudextract
+            [ "$platform" = "windows-x64" ] && exe=icloudextract.exe
+            test -f "artifacts/icloudextract-$platform/$exe"
+            # upload-artifact does not keep the executable bit, so set it before zipping
+            chmod +x "artifacts/icloudextract-$platform/$exe"
+            (cd "artifacts/icloudextract-$platform" && zip -q "$GITHUB_WORKSPACE/dist/icloudextract-$VERSION-$platform.zip" "$exe")
+          done
+          ls -l dist
+
+      - name: Create the release
+        run: |
+          gh release create "$VERSION" dist/*.zip \
+            --target "$GITHUB_SHA" \
+            --title "iCloudExtract $VERSION" \
+            --generate-notes
