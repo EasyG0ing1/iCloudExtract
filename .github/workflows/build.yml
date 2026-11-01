@@ -108,9 +108,27 @@ jobs:
           done
           ls -l dist
 
+      - name: Write the release notes
+        run: |
+          COMPILE_DATE=$(date -u +'%m-%d-%Y')
+          COMPILE_TIME=$(date -u +'%I:%M %p')
+          # The two spaces before each closing quote are markdown hard line breaks.
+          {
+            echo "Below are the compiled binaries for iCloudExtract."
+            echo
+            echo "Compile Date: $COMPILE_DATE  "
+            echo "Compile Time: $COMPILE_TIME UTC  "
+            echo "Release Version: $VERSION"
+            echo
+            echo "Download the file that fits your operating system / architecture and unzip the iCloudExtract executable and place it in a folder that is in your PATH, then open a command terminal and just run the program."
+            echo
+            echo "Please see the [README](https://github.com/$GH_REPO/blob/main/README.md) for instructions on using the program."
+          } > notes.md
+          cat notes.md
+
       - name: Create the release
         run: |
           gh release create "$VERSION" dist/*.zip \
             --target "$GITHUB_SHA" \
             --title "iCloudExtract $VERSION" \
-            --generate-notes
+            --notes-file notes.md
