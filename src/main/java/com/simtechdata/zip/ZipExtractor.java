@@ -134,7 +134,7 @@ public final class ZipExtractor {
             }
         } catch (Exception e) {
             report.fatal = e.toString();
-            log.error(zipName + " :: could not process archive: " + e);
+            log.record(zipName, LogReason.ERROR, LogAction.FAILED, "", "Could not process the archive: " + e);
         }
         return report;
     }
@@ -174,14 +174,24 @@ public final class ZipExtractor {
         Plan plan = ConflictPlanner.plan(items);
         report.folderRedirects = plan.legitimateFiles().size();
         for (String path : plan.legitimateFiles()) {
-            log.conflict(zipName + " :: '" + path + "' is both a file and a folder. Kept as a file; "
-                    + "its contents go to '" + path + ConflictPlanner.FOLDER_SUFFIX + "'");
+            log.record(zipName, LogReason.FILE_AND_FOLDER, LogAction.REDIRECTED, destinationPath(path, zipName),
+                    "This path is both a file and a folder. Kept as a file; its contents go to '"
+                            + path + ConflictPlanner.FOLDER_SUFFIX + "'");
         }
         for (String path : plan.placeholders()) {
-            log.conflict(zipName + " :: '" + path + "' is an empty file that is also used as a folder. "
-                    + "Treated as a folder and not written");
+            log.record(zipName, LogReason.EMPTY_PLACEHOLDER, LogAction.NOT_WRITTEN, destinationPath(path, zipName),
+                    "An empty file that is also used as a folder. Treated as a folder and not written");
         }
         return plan;
+    }
+
+    /** A path as it appears inside the zip, shown the way it will appear in the destination (without the mirror folder when consolidating). */
+    private String destinationPath(String pathInZip, String zipName) {
+        if (!settings.consolidate()) {
+            return pathInZip;
+        }
+        List<String> rest = EntryNames.withoutMirror(List.of(pathInZip.split("/")), EntryNames.mirrorName(zipName));
+        return String.join("/", rest);
     }
 
     // --- integrity (-checkzip)
@@ -217,7 +227,7 @@ public final class ZipExtractor {
                 }
             } catch (IOException | RuntimeException ex) {
                 ok = false;
-                log.error(report.name + " :: integrity check failed for '" + name + "': " + ex.getMessage());
+                log.record(report.name, LogReason.INTEGRITY, LogAction.FAILED, name, ex.getMessage());
                 printError(report, report.name + " :: integrity check failed for '" + name + "': " + ex.getMessage());
             }
         }
@@ -244,8 +254,9 @@ public final class ZipExtractor {
                             + "' exist as files");
                 }
                 if (redirectsLogged.add(p)) {
-                    log.conflict(zipName + " :: a file named '" + root.relativize(p)
-                            + "' already exists where a folder is needed; using '" + redirected + "' instead");
+                    log.record(zipName, LogReason.FILE_AND_FOLDER, LogAction.REDIRECTED, root.relativize(p).toString(),
+                            "A file with this name already exists where a folder is needed; using '"
+                                    + redirected + "' instead");
                 }
                 p = q;
             }
@@ -287,8 +298,9 @@ public final class ZipExtractor {
                 return skipped(Decision.SKIP_IDENTICAL, zipName, relative, target, c, report);
             }
             report.renamed++;
-            log.conflict(zipName + " :: name collision: a different file is already named '" + taken
-                    + "' (this file system treats the names as the same). Written as '" + relative + "'");
+            log.record(zipName, LogReason.NAME_COLLISION, LogAction.RENAMED, taken,
+                    "A different file is already named this (the zip lists the name twice, or this file system "
+                            + "treats the names as the same). Written as '" + relative + "'");
             first = Decision.NEW;
         }
         if (first == Decision.SKIP_IDENTICAL) {
@@ -343,7 +355,8 @@ public final class ZipExtractor {
                         handledByThisZip.add(target);
                         writtenThisRun.put(key(target), zipName);
                         report.overwritten++;
-                        log.conflict(zipName + " :: overwritten: " + relative);
+                        log.record(zipName, LogReason.DIFFERENT_FILE, LogAction.OVERWRITTEN, relative,
+                                "The existing file was replaced by the version in this zip");
                         return new Result(c.name(), target, size, crc, Outcome.OVERWRITTEN);
                     }
                     case SKIP_IDENTICAL -> {
@@ -424,8 +437,9 @@ public final class ZipExtractor {
             // Only a copy this run wrote is worth a log line; a file that was already on disk is skipped silently.
             String source = writtenThisRun.get(key(target));
             if (source != null) {
-                log.conflict(zipName + " :: skipped, identical to the copy already extracted from " + source
-                        + " in this run (CRC " + String.format("%08X", crc) + "): " + relative);
+                log.record(zipName, LogReason.IDENTICAL_COPY, LogAction.SKIPPED, relative,
+                        "Identical to the copy already extracted from " + source + " in this run (CRC "
+                                + String.format("%08X", crc) + ")");
             }
             return new Result(c.name(), target, size, crc, Outcome.SKIPPED_IDENTICAL);
         }
@@ -433,7 +447,7 @@ public final class ZipExtractor {
         String why = settings.overwrite() == OverwriteMode.NONE
                 ? "a different file already exists (use -overwrite to replace it)"
                 : "the existing file is the same age or newer";
-        log.conflict(zipName + " :: skipped, " + why + ": " + relative);
+        log.record(zipName, LogReason.DIFFERENT_FILE, LogAction.SKIPPED, relative, "Skipped: " + why);
         return new Result(c.name(), target, size, crc, Outcome.SKIPPED_CONFLICT);
     }
 
@@ -449,8 +463,9 @@ public final class ZipExtractor {
                 return;
             }
             Path folder = dir.resolveSibling(dir.getFileName() + ConflictPlanner.FOLDER_SUFFIX);
-            log.conflict(zipName + " :: a folder named '" + root.relativize(dir) + "' already exists but this zip "
-                    + "has a file with that name. Moving the folder to '" + folder.getFileName() + "'");
+            log.record(zipName, LogReason.FILE_AND_FOLDER, LogAction.MOVED, root.relativize(dir).toString(),
+                    "A folder with this name already exists but this zip has a file with that name. "
+                            + "Moving the folder to '" + folder.getFileName() + "'");
             new FolderMerger(root, log, zipName, settings.overwrite(),
                     settings.verify() == VerifyMode.CRC).mergeItem(dir, folder, new FolderMerger.Stats());
         }
@@ -463,7 +478,8 @@ public final class ZipExtractor {
         for (Result r : results) {
             if (r.outcome() == Outcome.SKIPPED_CONFLICT) {
                 report.verifyUnchecked++;
-                log.warn(zipName + " :: not verified, a different file was kept at: " + root.relativize(r.target()));
+                log.record(zipName, LogReason.VERIFY, LogAction.WARNING, root.relativize(r.target()).toString(),
+                        "Not verified: a different file was kept at this path");
                 continue;
             }
             String problem = null;
@@ -483,7 +499,7 @@ public final class ZipExtractor {
             } else {
                 report.verifyFailed++;
                 String message = zipName + " :: verify failed for '" + root.relativize(r.target()) + "': " + problem;
-                log.error(message);
+                log.record(zipName, LogReason.VERIFY, LogAction.FAILED, root.relativize(r.target()).toString(), problem);
                 printError(report, message);
             }
         }
@@ -495,7 +511,7 @@ public final class ZipExtractor {
         report.failed++;
         String detail = e.getMessage() != null ? e.getMessage() : e.toString();
         String message = zipName + " :: could not extract '" + entryName + "': " + detail;
-        log.error(message);
+        log.record(zipName, LogReason.ERROR, LogAction.FAILED, entryName, "Could not extract: " + detail);
         printError(report, message);
     }
 
@@ -503,7 +519,7 @@ public final class ZipExtractor {
         if (report.errorsPrinted++ < MAX_CONSOLE_ERRORS_PER_ZIP) {
             progress.error("  ERROR " + message);
         } else if (report.errorsPrinted == MAX_CONSOLE_ERRORS_PER_ZIP + 1) {
-            progress.error("  (further errors for " + report.name + " are in " + RunLog.RUN_LOG_NAME + ")");
+            progress.error("  (further errors for " + report.name + " are in " + log.file().getFileName() + ")");
         }
     }
 }

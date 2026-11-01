@@ -1,6 +1,8 @@
 package com.simtechdata.files;
 
 import com.simtechdata.admin.RunLog;
+import com.simtechdata.enums.LogAction;
+import com.simtechdata.enums.LogReason;
 import com.simtechdata.enums.OverwriteMode;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -93,25 +95,27 @@ public final class FolderMerger {
                     && Files.getLastModifiedTime(item).toMillis() > Files.getLastModifiedTime(target).toMillis())) {
                 Files.move(item, target, StandardCopyOption.REPLACE_EXISTING);
                 stats.overwritten++;
-                log.conflict(label + " :: overwritten: '" + root.relativize(target) + "' replaced by " + item);
+                log.record(label, LogReason.DIFFERENT_FILE, LogAction.OVERWRITTEN, root.relativize(target).toString(),
+                        "The existing file was replaced by " + item);
             } else {
                 stats.conflictsLeft++;
-                log.conflict(label + " :: left in place, a different file is already at '"
-                        + root.relativize(target) + "': " + item);
+                log.record(label, LogReason.DIFFERENT_FILE, LogAction.LEFT_IN_PLACE, root.relativize(target).toString(),
+                        "A different file is already at this path; " + item + " was left where it was");
             }
         } else if (itemIsDir) {
             // A folder wants the name of an existing file: the file keeps the name, the folder gets -folder.
             Path folder = target.resolveSibling(target.getFileName() + ConflictPlanner.FOLDER_SUFFIX);
             stats.redirectedToFolderSuffix++;
-            log.conflict(label + " :: '" + root.relativize(target) + "' is a file, so the folder from '" + item
-                    + "' goes to '" + folder.getFileName() + "'");
+            log.record(label, LogReason.FILE_AND_FOLDER, LogAction.REDIRECTED, root.relativize(target).toString(),
+                    "This path is a file, so the folder from " + item + " goes to '" + folder.getFileName() + "'");
             mergeItem(item, folder, stats);
         } else {
             // A file wants the name of an existing folder: the folder moves to -folder, the file takes the name.
             Path folder = target.resolveSibling(target.getFileName() + ConflictPlanner.FOLDER_SUFFIX);
             stats.redirectedToFolderSuffix++;
-            log.conflict(label + " :: '" + root.relativize(target) + "' is a folder, so it moves to '"
-                    + folder.getFileName() + "' and the file from '" + item + "' takes its name");
+            log.record(label, LogReason.FILE_AND_FOLDER, LogAction.MOVED, root.relativize(target).toString(),
+                    "This path is a folder, so it moves to '" + folder.getFileName() + "' and the file from "
+                            + item + " takes its name");
             mergeItem(target, folder, stats);
             mergeItem(item, target, stats);
         }
@@ -125,9 +129,9 @@ public final class FolderMerger {
             if (!Files.exists(candidate, NOFOLLOW_LINKS)) {
                 Files.move(item, candidate);
                 stats.renamed++;
-                log.conflict(label + " :: name collision: a different file is already named '"
-                        + root.relativize(target) + "' (this file system treats the names as the same). Moved as '"
-                        + root.relativize(candidate) + "': " + item);
+                log.record(label, LogReason.NAME_COLLISION, LogAction.RENAMED, root.relativize(target).toString(),
+                        "A different file is already named this (this file system treats the names as the same). "
+                                + item + " was moved as '" + root.relativize(candidate) + "'");
                 return;
             }
             if (Files.isRegularFile(candidate, NOFOLLOW_LINKS) && sameContent(item, candidate)) {

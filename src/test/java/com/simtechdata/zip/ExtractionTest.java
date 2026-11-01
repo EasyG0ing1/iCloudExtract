@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.simtechdata.admin.Settings;
 import com.simtechdata.enums.OverwriteMode;
 import com.simtechdata.admin.RunLog;
+import com.simtechdata.admin.TestLogs;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -89,7 +90,7 @@ class ExtractionTest {
         assertTrue(Files.isDirectory(drive.resolve("Empty")));
         assertEquals("inside", read(drive.resolve("Empty/inside.txt")));
         assertEquals("plain", read(drive.resolve("plain.txt")));
-        assertTrue(Files.exists(work.resolve(RunLog.CONFLICT_LOG_NAME)));
+        assertTrue(TestLogs.text(work).contains("File and folder share a name"), TestLogs.text(work));
     }
 
     @Test
@@ -138,9 +139,9 @@ class ExtractionTest {
         assertEquals("old", read(dest.resolve("Drive/shared/differs.txt")));
         assertFalse(Files.exists(dest.resolve("Part 1")));
 
-        String conflicts = read(work.resolve(RunLog.CONFLICT_LOG_NAME));
-        assertTrue(conflicts.contains("skipped, identical to the copy already extracted from Part 1.zip"), conflicts);
-        assertTrue(conflicts.contains("skipped, a different file already exists"), conflicts);
+        String conflicts = TestLogs.text(work);
+        assertTrue(conflicts.contains("Identical to the copy already extracted from Part 1.zip"), conflicts);
+        assertTrue(conflicts.contains("Skipped: a different file already exists"), conflicts);
 
         try (RunLog log = new RunLog(work)) {
             ZipReport r = new ZipExtractor(settings(dest, true, OverwriteMode.ALWAYS,
@@ -151,7 +152,7 @@ class ExtractionTest {
             assertTrue(r.ok(), r.summary(true));
         }
         assertEquals("new!", read(dest.resolve("Drive/shared/differs.txt")));
-        assertTrue(read(work.resolve(RunLog.CONFLICT_LOG_NAME)).contains("overwritten"));
+        assertTrue(TestLogs.text(work).contains("Overwritten"), TestLogs.text(work));
     }
 
     @Test
@@ -266,7 +267,7 @@ class ExtractionTest {
         }
         assertEquals("first", read(dest.resolve("z/dup-a.txt")));
         assertEquals("second!", read(dest.resolve("z/dup-a-1.txt")));
-        assertTrue(read(work.resolve(RunLog.CONFLICT_LOG_NAME)).contains("name collision"));
+        assertTrue(TestLogs.text(work).contains("Name collision"), TestLogs.text(work));
 
         // Running again must not create dup-a-2.txt: both copies are already there and identical.
         try (RunLog log = new RunLog(work)) {
@@ -323,7 +324,6 @@ class ExtractionTest {
             assertEquals(1, r.skippedIdentical);
         }
         assertEquals("xyz", read(dest.resolve("Part 1/Drive/a.txt")));
-        Path conflictLog = logs2.resolve(RunLog.CONFLICT_LOG_NAME);
-        assertTrue(!Files.exists(conflictLog) || !read(conflictLog).contains("skipped"));
+        assertFalse(TestLogs.text(logs2).contains("Skipped"), TestLogs.text(logs2));
     }
 }

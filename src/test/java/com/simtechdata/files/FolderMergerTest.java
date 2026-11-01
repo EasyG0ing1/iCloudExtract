@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import com.simtechdata.admin.RunLog;
+import com.simtechdata.admin.TestLogs;
 import com.simtechdata.enums.OverwriteMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -62,7 +63,7 @@ class FolderMergerTest {
         assertEquals("new!", Files.readString(dest.resolve("Part 2/Drive/differs.txt")));
         assertFalse(Files.exists(dest.resolve("Part 2/Drive/same.txt")));
         assertEquals("same", Files.readString(dest.resolve("Drive/same.txt")));
-        assertFalse(Files.readString(logs.resolve(RunLog.CONFLICT_LOG_NAME)).contains("identical"));
+        assertFalse(TestLogs.text(logs).toLowerCase().contains("identical"), TestLogs.text(logs));
     }
 
     private static FolderMerger.Stats mergePart2(Path dest, OverwriteMode mode) throws Exception {

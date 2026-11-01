@@ -1,5 +1,7 @@
 package com.simtechdata;
 
+import com.simtechdata.enums.LogAction;
+import com.simtechdata.enums.LogReason;
 import com.simtechdata.enums.VerifyMode;
 import com.simtechdata.files.FolderMerger;
 import com.simtechdata.enums.OverwriteMode;
@@ -45,9 +47,9 @@ import picocli.CommandLine.Option;
                 ""},
         footer = {
                 "",
-                "Logs are written to the folder the program was started from:",
-                "  iCloudExtract.log            everything, including every error",
-                "  iCloudExtract-conflicts.log  skipped, overwritten and redirected files",
+                "The log is written to the folder the program was started from, as one CSV file per run:",
+                "  iCloudExtract-yyyy-MM-dd_HH-mm-ss.log",
+                "  columns: date/time,ZipFile,Reason,Action,File(Path),Discussion",
                 "",
                 "Examples:",
                 "  icloudextract -source ~/Downloads -destination ~/Extracted",
@@ -367,14 +369,14 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
         Files.createDirectories(settings.destination());
         List<Path> zips = resolved.zips();
 
-        log.info("Run started. source=" + sourcePath + " destination=" + settings.destination()
+        log.info("", "Run started. source=" + sourcePath + " destination=" + settings.destination()
                 + " zips=" + zips.size() + " threads=" + settings.threads()
                 + " consolidate=" + settings.consolidate() + " overwrite=" + settings.overwrite()
                 + " verify=" + settings.verify() + " checkzip=" + settings.checkZip());
         System.out.println("Extracting " + zips.size() + " zip file(s) from " + sourcePath);
         System.out.println("Destination: " + settings.destination());
         for (String warning : resolved.warnings()) {
-            log.warn(warning);
+            log.warn("", warning);
         }
 
         if (settings.threads() > 1 && settings.overwrite() == OverwriteMode.ALWAYS) {
@@ -383,7 +385,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                     + "which version will end up written. Use '-overwrite newest', or -threads 1, for a predictable "
                     + "result.";
             System.err.println(notice);
-            log.warn(notice);
+            log.warn("", notice);
         }
 
         boolean verifying = settings.verify() != VerifyMode.NONE;
@@ -421,11 +423,11 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                         ? "; " + moved.duplicatesRemoved + " identical duplicate(s) removed, "
                         + moved.renamed + " renamed, " + moved.overwritten + " overwritten, "
                         + moved.conflictsLeft + " different file(s) left in place (see "
-                        + RunLog.CONFLICT_LOG_NAME + ")"
+                        + log.file().getFileName() + ")"
                         : "")
                         + ".";
                 progress.line(message);
-                log.info(message);
+                log.record("", LogReason.CONSOLIDATE, LogAction.MOVED, "", message);
                 progress.activity("");
             }
 
@@ -439,11 +441,11 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                     progress.begin(name);
                     progress.line("[" + number + "/" + total + "] Unzipping file " + name
                             + (settings.consolidate() ? " into " + settings.destination() : ""));
-                    log.info("Extracting " + name);
+                    log.info(name, "Extracting");
                     ZipReport report = extractor.extract(zip);
                     progress.end(name);
                     progress.line("[" + number + "/" + total + "] " + report.summary(verifying));
-                    log.info(report.summary(verifying));
+                    log.record(name, LogReason.ZIP_FINISHED, LogAction.INFO, "", report.summary(verifying));
                     return report;
                 }));
             }
@@ -465,7 +467,7 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                     }
                 } catch (ExecutionException e) {
                     failedZips++;
-                    log.error("Unexpected failure: " + e.getCause());
+                    log.record("", LogReason.ERROR, LogAction.FAILED, "", "Unexpected failure: " + e.getCause());
                     progress.error("Unexpected failure: " + e.getCause());
                 }
             }
@@ -478,10 +480,9 @@ public final class Main implements java.util.concurrent.Callable<Integer> {
                 + " | overwritten " + overwritten + " | skipped identical " + identical
                 + " | skipped conflicts " + conflicts + " | renamed " + renamed + " | failed " + failed
                 + (verifying ? " | verify mismatches " + verifyBad : ""));
-        System.out.println("Logs: " + log.runLogFile() + (Files.exists(log.conflictLogFile())
-                ? " and " + log.conflictLogFile() : ""));
+        System.out.println("Log: " + log.file());
         System.out.println("Elapsed time: " + progress.elapsed());
-        log.info("Run finished. failedZips=" + failedZips + " failed=" + failed + " verifyMismatches=" + verifyBad);
+        log.info("", "Run finished. failedZips=" + failedZips + " failed=" + failed + " verifyMismatches=" + verifyBad);
         if (failedZips > 0) {
             System.err.println(failedZips + " zip file(s) had problems; see the log for the full list.");
             return 1;
