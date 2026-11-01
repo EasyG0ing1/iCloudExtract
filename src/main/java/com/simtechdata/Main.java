@@ -27,8 +27,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 @Command(
-        name = "simtechdata",
-        version = "simtechdata 1.0.0",
+        name = "iCloudExtract",
+        version = "iCloudExtract 1.2.1",
         sortOptions = false,
         usageHelpAutoWidth = true,
         description = {
@@ -46,9 +46,9 @@ import picocli.CommandLine.Option;
                 "  iCloudExtract-conflicts.log  skipped, overwritten and redirected files",
                 "",
                 "Examples:",
-                "  simtechdata -source ~/Downloads -destination ~/Extracted",
-                "  simtechdata -source ~/Downloads -destination ~/iCloudDrive -consolidate -verify crc",
-                "  simtechdata -destination out -overwrite newest -threads 4 -checkzip"})
+                "  icloudextract -source ~/Downloads -destination ~/Extracted",
+                "  icloudextract -source ~/Downloads -destination ~/iCloudDrive -consolidate -verify crc",
+                "  icloudextract -destination out -overwrite newest -threads 4 -checkzip"})
 public final class Main implements java.util.concurrent.Callable<Integer> {
 
     @Option(names = {"-destination", "--destination"}, defaultValue = "iCloudExtract", paramLabel = "<folder>",

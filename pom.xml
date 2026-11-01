@@ -6,7 +6,7 @@
 
     <groupId>com.simtechdata</groupId>
     <artifactId>icloudextract</artifactId>
-    <version>1.0.0</version>
+    <version>1.2.1</version>
     <packaging>jar</packaging>
 
     <name>iCloudExtract</name>
@@ -65,7 +65,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
             </plugin>
-            <!-- Runnable fat jar for machines without a native build: java -jar simtechdata.jar ... -->
+            <!-- Runnable fat jar for machines without a native build: java -jar icloudextract.jar ... -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

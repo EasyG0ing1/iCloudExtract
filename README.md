@@ -1,5 +1,7 @@
 # iCloudExtract
 
+#### ** Current version 1.2.1 **
+
 Extracts the multi-part zip files you get from Apple's *Data and Privacy* export
 (`iCloud Drive Part 1 of 18.zip`, `Part 2 of 18`, ...) without losing files.
 
@@ -30,7 +32,7 @@ to have them all.
 Then, from inside that folder, run 
 
 ```bash
-simtechdata -consolidate -destination <path>
+icloudextract -consolidate -destination <path>
 ```
 
 The other command line options are explained below
@@ -39,11 +41,19 @@ Make sure the destination folder is a clean folder with nothing in it. However, 
 as they are downloaded you should run the program like this:
 
 ```bash
-simtechdata -consolidate -source filename.zip -destination <path>
+icloudextract -consolidate -source filename.zip -destination <path>
 ```
 
 Supply the same destination folder, while providing just the new zip file and the program will simply merge those files into
 the common path. 
+
+## Installation
+
+Simply [download the binary](https://github.com/EasyG0ing1/iCloudExtract/releases) for your operating system / architecture,
+then unzip the file and place the executable file into a folder that is in your environment PATH variable. 
+
+If you need information on modifying your PATH variable, [Click here](https://www.google.com/search?q=how+to+modify+the+PATH+environment+variable).
+
 
 ## For each run
 
