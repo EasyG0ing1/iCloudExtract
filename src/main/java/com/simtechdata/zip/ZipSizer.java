@@ -83,8 +83,15 @@ public final class ZipSizer {
                     List<ZipFileMeta> mine = new ArrayList<>();
                     Scan scan = scan(zip, number, consolidate, mine);
                     master.addAll(mine);
-                    progress.accept("[" + finished.incrementAndGet() + "/" + total + "] Finished " + scan.zipName()
-                            + (scan.error() == null ? "" : "  (could not be read)"));
+                    // Counting and printing happen together, so the lines always come out as 1, 2, 3 ... even when
+                    // several zips finish at the same moment.
+                    synchronized (finished) {
+                        int done = finished.incrementAndGet();
+                        int remaining = total - done;
+                        progress.accept("[" + done + "/" + total + "] Finished " + scan.zipName()
+                                + (scan.error() == null ? "" : "  (could not be read)")
+                                + " - " + remaining + " zip file" + (remaining == 1 ? "" : "s") + " remaining");
+                    }
                     return scan;
                 }));
             }

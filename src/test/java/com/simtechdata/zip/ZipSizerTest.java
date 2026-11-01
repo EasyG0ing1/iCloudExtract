@@ -275,5 +275,11 @@ class ZipSizerTest {
             assertTrue(started >= 0, "no start line for " + name + ": " + lines);
             assertTrue(finished > started, "the finish line must come after the start line for " + name + ": " + lines);
         }
+        // Every finish line says how many zip files have not been finished yet: 2, then 1, then 0.
+        List<String> finishLines = lines.stream().filter(l -> l.contains("Finished")).toList();
+        assertEquals(3, finishLines.size(), lines.toString());
+        assertTrue(finishLines.get(0).endsWith("- 2 zip files remaining"), finishLines.toString());
+        assertTrue(finishLines.get(1).endsWith("- 1 zip file remaining"), finishLines.toString());
+        assertTrue(finishLines.get(2).endsWith("- 0 zip files remaining"), finishLines.toString());
     }
 }
