@@ -1,6 +1,6 @@
 # iCloudExtract
 
-#### ** Current version 1.2.1 **
+#### ** Current version 1.2.2 **
 
 Extracts the multi-part zip files you get from Apple's *Data and Privacy* export
 (`iCloud Drive Part 1 of 18.zip`, `Part 2 of 18`, ...) without losing files.

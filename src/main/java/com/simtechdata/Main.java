@@ -37,7 +37,7 @@ import picocli.CommandLine.Option;
 
 @Command(
         name = "iCloudExtract",
-        version = "iCloudExtract 1.2.1",
+        version = "iCloudExtract 1.2.2",
         sortOptions = false,
         usageHelpAutoWidth = true,
         description = {
