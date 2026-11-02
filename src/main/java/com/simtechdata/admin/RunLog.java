@@ -67,13 +67,13 @@ public final class RunLog implements Closeable {
                         StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 if (fresh) {
                     writer.write(HEADER);
-                    writer.newLine();
+                    writer.write('\n');
                 }
             }
             writer.write(String.join(",",
                     STAMP.format(LocalDateTime.now()),
                     csv(zipFile), csv(reason.label()), csv(action.label()), csv(path), csv(discussion)));
-            writer.newLine();
+            writer.write('\n');
             writer.flush();
         } catch (IOException e) {
             System.err.println("Could not write to log file: " + e.getMessage());
